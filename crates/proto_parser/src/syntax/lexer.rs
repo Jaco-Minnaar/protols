@@ -128,20 +128,20 @@ pub enum TokenKind {
     RpcKw,
     StreamKw,
     ReturnsKw,
-    Divide,
     LineComment,
     BlockComment,
     NewLine,
     Unknown,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Token {
     value: String,
     kind: TokenKind,
     position: usize,
 }
 
-pub fn lex(input: &str) -> impl Iterator<Item = Token> + '_ {
+pub fn tokenize(input: &str) -> impl Iterator<Item = Token> + '_ {
     let mut cursor = Cursor::new(input);
 
     std::iter::from_fn(move || {
@@ -156,11 +156,11 @@ pub fn lex(input: &str) -> impl Iterator<Item = Token> + '_ {
 
 impl Cursor<'_> {
     fn advance_token(&mut self) -> Token {
+        let pos = self.current_pos();
         let c = match self.bump() {
             Some(c) => c,
             None => EOF_CHAR,
         };
-        let pos = self.current_pos();
 
         let token = match c {
             '/' => {
@@ -172,32 +172,22 @@ impl Cursor<'_> {
                 } else {
                     Token {
                         value: c.to_string(),
-                        kind: TokenKind::Divide,
+                        kind: TokenKind::Slash,
                         position: pos,
                     }
                 }
             }
+            c @ '_' => self.identifier_or_keyword(c, pos),
+            c if c.is_ascii_alphabetic() => self.identifier_or_keyword(c, pos),
+            c if c.is_whitespace() => self.whitespace(c, pos),
+            c if c.is_digit(10) => self.numeric_literal(c, pos),
+            '.' if self.first().is_digit(10) => self.numeric_literal(c, pos),
             c if OPERATORS.contains_key(&c) => Token {
                 value: c.to_string(),
                 kind: *OPERATORS.get(&c).unwrap(),
                 position: pos,
             },
-            c @ '_' => self.identifier_or_keyword(c, pos),
-            c if c.is_ascii_alphabetic() => self.identifier_or_keyword(c, pos),
-            c if c.is_whitespace() => {
-                if c == '\n' || (c == '\r' && self.first() != '\n') {
-                    Token {
-                        value: c.to_string(),
-                        kind: TokenKind::NewLine,
-                        position: pos,
-                    }
-                } else {
-                    self.advance_token()
-                }
-            }
-            c if c.is_digit(10) => self.numeric_literal(c, pos),
-            '.' if self.first().is_digit(10) => self.numeric_literal(c, pos),
-            '"' => self.string(c, pos),
+            c @ '"' | c @ '\'' => self.string(c, pos),
             _ => Token {
                 value: c.to_string(),
                 kind: TokenKind::Unknown,
@@ -208,11 +198,40 @@ impl Cursor<'_> {
         token
     }
 
+    fn whitespace(&mut self, c: char, pos: usize) -> Token {
+        let mut value = c.to_string();
+        match c {
+            '\n' => Token {
+                value: c.to_string(),
+                kind: TokenKind::NewLine,
+                position: pos,
+            },
+            '\r' => {
+                if self.first() == '\n' {
+                    let c = self.bump().unwrap();
+                    value.push(c);
+                    Token {
+                        value,
+                        kind: TokenKind::NewLine,
+                        position: pos,
+                    }
+                } else {
+                    Token {
+                        value: c.to_string(),
+                        kind: TokenKind::Unknown,
+                        position: pos,
+                    }
+                }
+            }
+            _ => self.advance_token(),
+        }
+    }
+
     fn string(&mut self, c: char, pos: usize) -> Token {
         let mut value = c.to_string();
         let mut next = self.first();
 
-        while next != '"' {
+        while next != c {
             // TODO: handle escape sequences
             value.push(self.bump().unwrap());
             next = self.first();
@@ -237,7 +256,6 @@ impl Cursor<'_> {
             || next == 'E'
             || next == '+'
             || next == '-'
-            || next == 'i'
             || next.is_ascii_alphabetic()
         {
             value.push(self.bump().unwrap());
@@ -246,7 +264,8 @@ impl Cursor<'_> {
 
         let mut chars = value.chars();
         let mut kind = TokenKind::Unknown;
-        if value.contains('.') {
+        if value.contains(&['.', 'e', 'E']) {
+            kind = TokenKind::FloatLiteral;
             let mut has_point = false;
             let mut has_e = false;
 
@@ -258,6 +277,7 @@ impl Cursor<'_> {
                 };
 
                 if !valid {
+                    kind = TokenKind::Unknown;
                     return Token {
                         value,
                         kind,
@@ -274,14 +294,11 @@ impl Cursor<'_> {
                     }
 
                     has_e = true;
-                    let c = chars.next().unwrap();
-                    match c {
-                        '+' | '-' if chars.next().unwrap().is_digit(10) => {
-                            kind = TokenKind::FloatLiteral;
+                    match chars.next() {
+                        Some('+') | Some('-') if chars.next().unwrap().is_digit(10) => {
                             continue;
                         }
-                        c if c.is_digit(10) => {
-                            kind = TokenKind::FloatLiteral;
+                        Some(c) if c.is_digit(10) => {
                             continue;
                         }
                         _ => {
@@ -327,8 +344,13 @@ impl Cursor<'_> {
 
     fn identifier_or_keyword(&mut self, c: char, pos: usize) -> Token {
         let mut value = c.to_string();
-        while self.first().is_ascii_alphabetic() {
-            value.push(self.bump().unwrap());
+
+        loop {
+            match self.first() {
+                c if c.is_ascii_alphanumeric() => value.push(self.bump().unwrap()),
+                '_' => value.push(self.bump().unwrap()),
+                _ => break,
+            }
         }
 
         if let Some(kind) = KEYWORD.get(&value) {
@@ -352,5 +374,243 @@ impl Cursor<'_> {
 
     fn block_comment(&mut self) -> Token {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{tokenize, Token, TokenKind};
+
+    #[test]
+    fn single_quoted_string() {
+        let input = r#"'hello'"#;
+
+        let expected_tokens = vec![Token {
+            value: "'hello'".to_string(),
+            kind: TokenKind::String,
+            position: 0,
+        }];
+
+        let actual_tokens: Vec<Token> = tokenize(input).collect();
+
+        assert_eq!(expected_tokens.len(), actual_tokens.len());
+
+        expected_tokens
+            .iter()
+            .zip(actual_tokens)
+            .for_each(|(e, a)| {
+                assert_eq!(e, &a);
+            });
+    }
+
+    #[test]
+    fn double_quoted_string() {
+        let input = r#""hello""#;
+
+        let expected_tokens = vec![Token {
+            value: r#""hello""#.to_string(),
+            kind: TokenKind::String,
+            position: 0,
+        }];
+
+        let actual_tokens: Vec<Token> = tokenize(input).collect();
+
+        assert_eq!(expected_tokens.len(), actual_tokens.len());
+
+        expected_tokens
+            .iter()
+            .zip(actual_tokens)
+            .for_each(|(e, a)| {
+                assert_eq!(e, &a);
+            });
+    }
+
+    #[test]
+    fn new_lines() {
+        let inputs = vec![
+            ("\r\n", TokenKind::NewLine),
+            ("\n", TokenKind::NewLine),
+            ("\r", TokenKind::Unknown),
+        ];
+
+        for (input, expected_kind) in inputs {
+            let expected_tokens = vec![Token {
+                value: input.to_string(),
+                kind: expected_kind,
+                position: 0,
+            }];
+
+            let actual_tokens: Vec<Token> = tokenize(input).collect();
+
+            assert_eq!(expected_tokens.len(), actual_tokens.len());
+
+            expected_tokens
+                .iter()
+                .zip(actual_tokens)
+                .for_each(|(e, a)| {
+                    assert_eq!(e, &a);
+                });
+        }
+    }
+
+    #[test]
+    fn numeric_literal() {
+        let inputs = vec![
+            ("0", TokenKind::DecimalIntLiteral),
+            ("1234", TokenKind::DecimalIntLiteral),
+            ("0741", TokenKind::OctalIntLiteral),
+            ("0781", TokenKind::Unknown),
+            ("0x0f6db2", TokenKind::HexIntLiteral),
+            ("0X0f6db2", TokenKind::HexIntLiteral),
+            ("0.0", TokenKind::FloatLiteral),
+            ("1.", TokenKind::FloatLiteral),
+            (".123", TokenKind::FloatLiteral),
+            ("555.555", TokenKind::FloatLiteral),
+            ("1.234e-12", TokenKind::FloatLiteral),
+            (".953e20", TokenKind::FloatLiteral),
+            ("5E+40", TokenKind::FloatLiteral),
+        ];
+
+        for (input, expected_kind) in inputs {
+            let expected_tokens = vec![Token {
+                value: input.to_string(),
+                kind: expected_kind,
+                position: 0,
+            }];
+
+            let actual_tokens: Vec<Token> = tokenize(input).collect();
+
+            assert_eq!(
+                expected_tokens.len(),
+                actual_tokens.len(),
+                "expected = {:?}, actual = {:?}",
+                expected_tokens,
+                actual_tokens
+            );
+
+            expected_tokens
+                .iter()
+                .zip(actual_tokens)
+                .for_each(|(e, a)| {
+                    assert_eq!(e, &a);
+                });
+        }
+    }
+
+    #[test]
+    pub fn keywords() {
+        let input = vec![
+            ("syntax", TokenKind::SyntaxKw),
+            ("import", TokenKind::ImportKw),
+            ("package", TokenKind::PackageKw),
+            ("option", TokenKind::OptionKw),
+            ("message", TokenKind::MessageKw),
+            ("enum", TokenKind::EnumKw),
+            ("service", TokenKind::ServiceKw),
+            ("rpc", TokenKind::RpcKw),
+            ("returns", TokenKind::ReturnsKw),
+            ("extend", TokenKind::ExtendKw),
+            ("extensions", TokenKind::ExtensionsKw),
+            ("reserved", TokenKind::ReservedKw),
+            ("to", TokenKind::ToKw),
+            ("max", TokenKind::MaxKw),
+            ("weak", TokenKind::WeakKw),
+            ("repeated", TokenKind::RepeatedKw),
+            ("map", TokenKind::MapKw),
+            ("oneof", TokenKind::OneofKw),
+            ("group", TokenKind::GroupKw),
+            ("required", TokenKind::RequiredKw),
+            ("optional", TokenKind::OptionalKw),
+            ("double", TokenKind::DoubleKw),
+            ("float", TokenKind::FloatKw),
+            ("int32", TokenKind::Int32Kw),
+            ("int64", TokenKind::Int64Kw),
+            ("uint32", TokenKind::Uint32Kw),
+            ("uint64", TokenKind::Uint64Kw),
+            ("sint32", TokenKind::Sint32Kw),
+            ("sint64", TokenKind::Sint64Kw),
+            ("fixed32", TokenKind::Fixed32Kw),
+            ("fixed64", TokenKind::Fixed64Kw),
+            ("sfixed32", TokenKind::SFixed32Kw),
+            ("sfixed64", TokenKind::SFixed64Kw),
+            ("bool", TokenKind::BoolKw),
+            ("string", TokenKind::StringKw),
+            ("bytes", TokenKind::BytesKw),
+            ("stream", TokenKind::StreamKw),
+            ("inf", TokenKind::InfKw),
+            ("public", TokenKind::PublicKw),
+        ];
+
+        for (input, expected_kind) in input {
+            let expected_tokens = vec![Token {
+                value: input.to_string(),
+                kind: expected_kind,
+                position: 0,
+            }];
+
+            let actual_tokens: Vec<Token> = tokenize(input).collect();
+
+            assert_eq!(
+                expected_tokens.len(),
+                actual_tokens.len(),
+                "expected = {:?}, actual = {:?}",
+                expected_tokens,
+                actual_tokens
+            );
+
+            expected_tokens
+                .iter()
+                .zip(actual_tokens)
+                .for_each(|(e, a)| {
+                    assert_eq!(e, &a);
+                });
+        }
+    }
+
+    #[test]
+    fn operators() {
+        let input = vec![
+            (';', TokenKind::SemiColon),
+            (',', TokenKind::Comma),
+            ('=', TokenKind::Equals),
+            ('{', TokenKind::LBrace),
+            ('}', TokenKind::RBrace),
+            ('[', TokenKind::LBracket),
+            (']', TokenKind::RBracket),
+            ('(', TokenKind::LParen),
+            (')', TokenKind::RParen),
+            ('<', TokenKind::LAngle),
+            ('>', TokenKind::RAngle),
+            (':', TokenKind::Colon),
+            ('.', TokenKind::Dot),
+            ('+', TokenKind::Plus),
+            ('-', TokenKind::Minus),
+            ('/', TokenKind::Slash),
+        ];
+
+        for (input, expected_kind) in input {
+            let expected_tokens = vec![Token {
+                value: input.to_string(),
+                kind: expected_kind,
+                position: 0,
+            }];
+
+            let actual_tokens: Vec<Token> = tokenize(&input.to_string()).collect();
+
+            assert_eq!(
+                expected_tokens.len(),
+                actual_tokens.len(),
+                "expected = {:?}, actual = {:?}",
+                expected_tokens,
+                actual_tokens
+            );
+
+            expected_tokens
+                .iter()
+                .zip(actual_tokens)
+                .for_each(|(e, a)| {
+                    assert_eq!(e, &a);
+                });
+        }
     }
 }
