@@ -4,12 +4,12 @@ use self::{
     service::ServiceNode,
 };
 
-mod message;
-mod option;
-mod service;
+pub mod message;
+pub mod option;
+pub mod service;
 
 #[derive(Debug)]
-pub enum RootNodeType {
+pub enum RootNode {
     SyntaxDeclaration(Node<SyntaxNode>),
     PackageDeclaration(Node<PackageNode>),
     ImportDeclaration(Node<ImportNode>),
@@ -32,7 +32,7 @@ pub struct PackageNode {
 
 #[derive(Debug)]
 pub struct ImportNode {
-    pub package_name: Vec<String>,
+    pub package_name: String,
     pub modifier: Option<ImportModifier>,
 }
 
@@ -64,7 +64,7 @@ pub enum TagEnd {
 #[derive(Debug)]
 pub struct EnumNode {
     pub name: String,
-    pub elements: Vec<EnumElement>,
+    pub elements: Vec<Node<EnumElement>>,
 }
 
 #[derive(Debug)]
@@ -80,8 +80,8 @@ pub enum EnumElement {
 
 #[derive(Debug)]
 pub struct ExtensionNode {
-    pub extendee: String,
-    pub elements: Vec<ExtensionElement>,
+    pub extendee: Vec<String>,
+    pub elements: Vec<Node<ExtensionElement>>,
 }
 
 #[derive(Debug)]
@@ -122,8 +122,21 @@ pub enum ImportModifier {
 
 #[derive(Debug)]
 pub struct Root {
-    pub nodes: Vec<RootNodeType>,
+    pub nodes: Vec<RootNode>,
     pub file_name: String,
+}
+
+impl Root {
+    pub fn new(file_name: String) -> Self {
+        Self {
+            nodes: Vec::new(),
+            file_name,
+        }
+    }
+
+    pub fn add_node(&mut self, node: RootNode) {
+        self.nodes.push(node);
+    }
 }
 
 #[derive(Debug)]
@@ -131,4 +144,10 @@ pub struct Node<T> {
     pub value: T,
     pub start: usize,
     pub end: usize,
+}
+
+impl<T> Node<T> {
+    pub fn new(value: T, start: usize, end: usize) -> Self {
+        Self { value, start, end }
+    }
 }

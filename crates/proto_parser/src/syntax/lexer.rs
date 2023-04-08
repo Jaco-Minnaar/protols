@@ -132,13 +132,14 @@ pub enum TokenKind {
     BlockComment,
     NewLine,
     Unknown,
+    Eof,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Token {
-    value: String,
-    kind: TokenKind,
-    position: usize,
+    pub value: String,
+    pub kind: TokenKind,
+    pub position: usize,
 }
 
 pub fn tokenize(input: &str) -> impl Iterator<Item = Token> + '_ {
@@ -188,6 +189,11 @@ impl Cursor<'_> {
                 position: pos,
             },
             c @ '"' | c @ '\'' => self.string(c, pos),
+            EOF_CHAR => Token {
+                value: c.to_string(),
+                kind: TokenKind::Eof,
+                position: pos,
+            },
             _ => Token {
                 value: c.to_string(),
                 kind: TokenKind::Unknown,

@@ -1,9 +1,9 @@
-use super::{option::OptionNode, TypeName};
+use super::{option::OptionNode, Node, TypeName};
 
 #[derive(Debug)]
 pub struct ServiceNode {
     pub name: String,
-    pub methods: Vec<MethodNode>,
+    pub methods: Vec<Node<MethodNode>>,
 }
 
 #[derive(Debug)]
