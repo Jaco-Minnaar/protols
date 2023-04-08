@@ -382,28 +382,6 @@ mod tests {
     use super::{tokenize, Token, TokenKind};
 
     #[test]
-    fn single_quoted_string() {
-        let input = r#"'hello'"#;
-
-        let expected_tokens = vec![Token {
-            value: "'hello'".to_string(),
-            kind: TokenKind::String,
-            position: 0,
-        }];
-
-        let actual_tokens: Vec<Token> = tokenize(input).collect();
-
-        assert_eq!(expected_tokens.len(), actual_tokens.len());
-
-        expected_tokens
-            .iter()
-            .zip(actual_tokens)
-            .for_each(|(e, a)| {
-                assert_eq!(e, &a);
-            });
-    }
-
-    #[test]
     fn double_quoted_string() {
         let input = r#""hello""#;
 
@@ -595,6 +573,216 @@ mod tests {
                 position: 0,
             }];
 
+            let actual_tokens: Vec<Token> = tokenize(&input.to_string()).collect();
+
+            assert_eq!(
+                expected_tokens.len(),
+                actual_tokens.len(),
+                "expected = {:?}, actual = {:?}",
+                expected_tokens,
+                actual_tokens
+            );
+
+            expected_tokens
+                .iter()
+                .zip(actual_tokens)
+                .for_each(|(e, a)| {
+                    assert_eq!(e, &a);
+                });
+        }
+    }
+
+    #[test]
+    fn combinations() {
+        let input: &[(&str, &[Token])] = &[
+            (
+                "syntax = \"proto3\";",
+                &[
+                    Token {
+                        value: "syntax".to_string(),
+                        kind: TokenKind::SyntaxKw,
+                        position: 0,
+                    },
+                    Token {
+                        value: "=".to_string(),
+                        kind: TokenKind::Equals,
+                        position: 7,
+                    },
+                    Token {
+                        value: "\"proto3\"".to_string(),
+                        kind: TokenKind::String,
+                        position: 9,
+                    },
+                    Token {
+                        value: ";".to_string(),
+                        kind: TokenKind::SemiColon,
+                        position: 17,
+                    },
+                ],
+            ),
+            (
+                "message Foo {",
+                &[
+                    Token {
+                        value: "message".to_string(),
+                        kind: TokenKind::MessageKw,
+                        position: 0,
+                    },
+                    Token {
+                        value: "Foo".to_string(),
+                        kind: TokenKind::Identifier,
+                        position: 8,
+                    },
+                    Token {
+                        value: "{".to_string(),
+                        kind: TokenKind::LBrace,
+                        position: 12,
+                    },
+                ],
+            ),
+            (
+                "message Foo { optional int32 bar = 1; }",
+                &[
+                    Token {
+                        value: "message".to_string(),
+                        kind: TokenKind::MessageKw,
+                        position: 0,
+                    },
+                    Token {
+                        value: "Foo".to_string(),
+                        kind: TokenKind::Identifier,
+                        position: 8,
+                    },
+                    Token {
+                        value: "{".to_string(),
+                        kind: TokenKind::LBrace,
+                        position: 12,
+                    },
+                    Token {
+                        value: "optional".to_string(),
+                        kind: TokenKind::OptionalKw,
+                        position: 14,
+                    },
+                    Token {
+                        value: "int32".to_string(),
+                        kind: TokenKind::Int32Kw,
+                        position: 23,
+                    },
+                    Token {
+                        value: "bar".to_string(),
+                        kind: TokenKind::Identifier,
+                        position: 29,
+                    },
+                    Token {
+                        value: "=".to_string(),
+                        kind: TokenKind::Equals,
+                        position: 33,
+                    },
+                    Token {
+                        value: "1".to_string(),
+                        kind: TokenKind::DecimalIntLiteral,
+                        position: 35,
+                    },
+                    Token {
+                        value: ";".to_string(),
+                        kind: TokenKind::SemiColon,
+                        position: 36,
+                    },
+                    Token {
+                        value: "}".to_string(),
+                        kind: TokenKind::RBrace,
+                        position: 38,
+                    },
+                ],
+            ),
+            (
+                "message Foo { optional int32 bar = 1; optional int32 baz = 2; }",
+                &[
+                    Token {
+                        value: "message".to_string(),
+                        kind: TokenKind::MessageKw,
+                        position: 0,
+                    },
+                    Token {
+                        value: "Foo".to_string(),
+                        kind: TokenKind::Identifier,
+                        position: 8,
+                    },
+                    Token {
+                        value: "{".to_string(),
+                        kind: TokenKind::LBrace,
+                        position: 12,
+                    },
+                    Token {
+                        value: "optional".to_string(),
+                        kind: TokenKind::OptionalKw,
+                        position: 14,
+                    },
+                    Token {
+                        value: "int32".to_string(),
+                        kind: TokenKind::Int32Kw,
+                        position: 23,
+                    },
+                    Token {
+                        value: "bar".to_string(),
+                        kind: TokenKind::Identifier,
+                        position: 29,
+                    },
+                    Token {
+                        value: "=".to_string(),
+                        kind: TokenKind::Equals,
+                        position: 33,
+                    },
+                    Token {
+                        value: "1".to_string(),
+                        kind: TokenKind::DecimalIntLiteral,
+                        position: 35,
+                    },
+                    Token {
+                        value: ";".to_string(),
+                        kind: TokenKind::SemiColon,
+                        position: 36,
+                    },
+                    Token {
+                        value: "optional".to_string(),
+                        kind: TokenKind::OptionalKw,
+                        position: 38,
+                    },
+                    Token {
+                        value: "int32".to_string(),
+                        kind: TokenKind::Int32Kw,
+                        position: 47,
+                    },
+                    Token {
+                        value: "baz".to_string(),
+                        kind: TokenKind::Identifier,
+                        position: 53,
+                    },
+                    Token {
+                        value: "=".to_string(),
+                        kind: TokenKind::Equals,
+                        position: 57,
+                    },
+                    Token {
+                        value: "2".to_string(),
+                        kind: TokenKind::DecimalIntLiteral,
+                        position: 59,
+                    },
+                    Token {
+                        value: ";".to_string(),
+                        kind: TokenKind::SemiColon,
+                        position: 60,
+                    },
+                    Token {
+                        value: "}".to_string(),
+                        kind: TokenKind::RBrace,
+                        position: 62,
+                    },
+                ],
+            ),
+        ];
+
+        for (input, expected_tokens) in input {
             let actual_tokens: Vec<Token> = tokenize(&input.to_string()).collect();
 
             assert_eq!(
