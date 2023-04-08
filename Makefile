@@ -15,7 +15,7 @@ check:
 	@cargo check
 test:
 	@echo "Running tests"
-	@cargo test
+	@cargo test --workspace
 build_release:
 	@echo "Building release: $(VERSION)"
 	@cargo build --release
