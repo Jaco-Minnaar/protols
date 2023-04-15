@@ -1,16 +1,12 @@
-use super::TypeName;
+use super::{Node, TypeName};
 
 #[derive(Debug)]
 pub struct OptionNode {
-    pub name: OptionName,
-    pub value: OptionValue,
+    pub name: Node<OptionName>,
+    pub value: Node<OptionValue>,
 }
 
-#[derive(Debug)]
-pub enum OptionName {
-    SimpleName(String),
-    ExtensionName(TypeName),
-}
+pub type OptionName = Vec<Node<OptionNamePart>>;
 
 #[derive(Debug)]
 pub enum OptionValue {
@@ -20,4 +16,10 @@ pub enum OptionValue {
     FloatLiteral(String),
     Identifier(String),
     MessageLiteral(String),
+}
+
+#[derive(Debug)]
+pub enum OptionNamePart {
+    SimpleName(String),
+    ExtensionName(TypeName),
 }

@@ -37,10 +37,14 @@ pub struct ImportNode {
 }
 
 #[derive(Debug)]
-pub enum TypeName {
-    Scalar(ScalarType),
-    Message(String),
-    Enum(String),
+pub struct TypeName {
+    pub parts: Vec<String>,
+}
+
+impl From<Vec<String>> for TypeName {
+    fn from(value: Vec<String>) -> Self {
+        Self { parts: value }
+    }
 }
 
 #[derive(Debug)]

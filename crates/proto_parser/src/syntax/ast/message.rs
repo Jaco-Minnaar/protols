@@ -11,7 +11,7 @@ pub struct MessageNode {
 #[derive(Debug)]
 pub struct FieldDeclaration {
     pub cardinality: FieldCardinality,
-    pub type_name: ScalarType,
+    pub type_name: FieldType,
     pub name: String,
     pub number: u32,
     pub options: Vec<OptionNode>,
@@ -20,7 +20,7 @@ pub struct FieldDeclaration {
 #[derive(Debug)]
 pub struct MapFieldDeclaration {
     pub key_type: ScalarType,
-    pub value_type: TypeName,
+    pub value_type: FieldType,
     pub name: String,
     pub number: u32,
     pub options: Vec<OptionNode>,
@@ -56,10 +56,16 @@ pub enum FieldCardinality {
 }
 
 #[derive(Debug)]
+pub enum FieldType {
+    ScalarType(ScalarType),
+    TypeName(TypeName),
+}
+
+#[derive(Debug)]
 pub enum OneofElement {
     Option,
     OneofField {
-        type_name: TypeName,
+        type_name: FieldType,
         name: String,
         number: u32,
         options: Vec<OptionNode>,

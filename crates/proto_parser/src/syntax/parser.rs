@@ -1,6 +1,8 @@
 use std::{iter::Peekable, str::FromStr};
 
-use crate::syntax::ast::{message::MessageNode, EnumNode, ExtensionNode};
+use crate::syntax::ast::{
+    message::MessageNode, option::OptionNamePart, EnumNode, ExtensionNode, TypeName,
+};
 
 use super::{
     ast::{
@@ -389,11 +391,53 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         Ok(identifiers)
     }
 
-    fn option_name(&self) -> Result<OptionName> {
-        todo!()
+    fn option_name(&mut self) -> Result<Node<OptionName>> {
+        let mut name = Vec::new();
+
+        loop {
+            match self.peek_kind() {
+                Some(TokenKind::Identifier) => {
+                    let identifier = self.advance().unwrap();
+                    let part = Node::new(
+                        OptionNamePart::SimpleName(identifier.value),
+                        identifier.position,
+                        identifier.position,
+                    );
+                    name.push(part);
+                }
+                Some(TokenKind::LParen) => {
+                    let start = self.advance().unwrap().position;
+                    let identifier = self.qualified_identifier()?;
+                    let end = self.expect(TokenKind::RParen)?.position;
+
+                    let part = Node::new(
+                        OptionNamePart::ExtensionName(TypeName::from(identifier)),
+                        start,
+                        end,
+                    );
+
+                    name.push(part);
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+
+        if name.is_empty() {
+            return Err(ParseError::new(
+                format!("Expected option name",),
+                self.tokens.peek().unwrap().position,
+            ));
+        }
+
+        let start = name.first().unwrap().start;
+        let end = name.last().unwrap().end;
+
+        Ok(Node::new(name, start, end))
     }
 
-    fn option_value(&self) -> Result<OptionValue> {
+    fn option_value(&self) -> Result<Node<OptionValue>> {
         todo!()
     }
 
