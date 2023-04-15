@@ -21,7 +21,7 @@ build_release:
 	@cargo build --release
 build_debug:
 	@echo "Building debug"
-	@cargo build
+	@cargo build --workspace
 run:
 	@echo "Running debug"
 	@cargo run

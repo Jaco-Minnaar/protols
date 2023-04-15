@@ -67,9 +67,7 @@ static OPERATORS: phf::Map<char, TokenKind> = phf_map! {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenKind {
-    DecimalIntLiteral,
-    OctalIntLiteral,
-    HexIntLiteral,
+    IntLiteral,
     FloatLiteral,
     String,
     SemiColon,
@@ -133,6 +131,29 @@ pub enum TokenKind {
     NewLine,
     Unknown,
     Eof,
+}
+
+impl TokenKind {
+    pub fn is_scalar_kw(&self) -> bool {
+        matches!(
+            self,
+            TokenKind::StringKw
+                | TokenKind::BoolKw
+                | TokenKind::BytesKw
+                | TokenKind::FloatKw
+                | TokenKind::DoubleKw
+                | TokenKind::Int32Kw
+                | TokenKind::Int64Kw
+                | TokenKind::Uint32Kw
+                | TokenKind::Uint64Kw
+                | TokenKind::Sint32Kw
+                | TokenKind::Sint64Kw
+                | TokenKind::Fixed32Kw
+                | TokenKind::Fixed64Kw
+                | TokenKind::SFixed32Kw
+                | TokenKind::SFixed64Kw
+        )
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -327,17 +348,17 @@ impl Cursor<'_> {
             if chars.next().unwrap() == '0' {
                 match chars.next() {
                     Some('x') | Some('X') if chars.all(|c| c.is_digit(16)) => {
-                        kind = TokenKind::HexIntLiteral
+                        kind = TokenKind::IntLiteral
                     }
                     Some(c) if c.is_digit(8) && chars.all(|c| c.is_digit(8)) => {
-                        kind = TokenKind::OctalIntLiteral
+                        kind = TokenKind::IntLiteral
                     }
 
                     Some(_) => kind = TokenKind::Unknown,
-                    None => kind = TokenKind::DecimalIntLiteral,
+                    None => kind = TokenKind::IntLiteral,
                 }
             } else {
-                kind = TokenKind::DecimalIntLiteral;
+                kind = TokenKind::IntLiteral;
             }
         }
 
@@ -440,12 +461,12 @@ mod tests {
     #[test]
     fn numeric_literal() {
         let inputs = vec![
-            ("0", TokenKind::DecimalIntLiteral),
-            ("1234", TokenKind::DecimalIntLiteral),
-            ("0741", TokenKind::OctalIntLiteral),
+            ("0", TokenKind::IntLiteral),
+            ("1234", TokenKind::IntLiteral),
+            ("0741", TokenKind::IntLiteral),
             ("0781", TokenKind::Unknown),
-            ("0x0f6db2", TokenKind::HexIntLiteral),
-            ("0X0f6db2", TokenKind::HexIntLiteral),
+            ("0x0f6db2", TokenKind::IntLiteral),
+            ("0X0f6db2", TokenKind::IntLiteral),
             ("0.0", TokenKind::FloatLiteral),
             ("1.", TokenKind::FloatLiteral),
             (".123", TokenKind::FloatLiteral),
@@ -686,7 +707,7 @@ mod tests {
                     },
                     Token {
                         value: "1".to_string(),
-                        kind: TokenKind::DecimalIntLiteral,
+                        kind: TokenKind::IntLiteral,
                         position: 35,
                     },
                     Token {
@@ -741,7 +762,7 @@ mod tests {
                     },
                     Token {
                         value: "1".to_string(),
-                        kind: TokenKind::DecimalIntLiteral,
+                        kind: TokenKind::IntLiteral,
                         position: 35,
                     },
                     Token {
@@ -771,7 +792,7 @@ mod tests {
                     },
                     Token {
                         value: "2".to_string(),
-                        kind: TokenKind::DecimalIntLiteral,
+                        kind: TokenKind::IntLiteral,
                         position: 59,
                     },
                     Token {

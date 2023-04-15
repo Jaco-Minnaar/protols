@@ -4,6 +4,8 @@ use self::{
     service::ServiceNode,
 };
 
+use super::lexer::TokenKind;
+
 pub mod message;
 pub mod option;
 pub mod service;
@@ -38,25 +40,38 @@ pub struct ImportNode {
 
 #[derive(Debug)]
 pub struct TypeName {
+    pub absolute: bool,
     pub parts: Vec<String>,
 }
 
 impl From<Vec<String>> for TypeName {
     fn from(value: Vec<String>) -> Self {
-        Self { parts: value }
+        Self {
+            parts: value,
+            absolute: false,
+        }
+    }
+}
+
+impl From<String> for TypeName {
+    fn from(value: String) -> Self {
+        let absolute = value.starts_with('.');
+        let parts = value.split('.').map(|s| s.to_string()).collect();
+
+        Self { parts, absolute }
     }
 }
 
 #[derive(Debug)]
 pub enum Reserved {
-    TagRanges(Vec<TagRange>),
-    Names(Vec<String>),
+    TagRanges(Vec<Node<TagRange>>),
+    Names(Vec<Node<String>>),
 }
 
 #[derive(Debug)]
 pub struct TagRange {
-    start: u32,
-    end: Option<TagEnd>,
+    pub start: Node<u32>,
+    pub end: Option<Node<TagEnd>>,
 }
 
 #[derive(Debug)]
@@ -110,6 +125,59 @@ pub enum ScalarType {
     Bool,
     String,
     Bytes,
+}
+
+impl TryFrom<TokenKind> for ScalarType {
+    type Error = String;
+
+    fn try_from(value: TokenKind) -> Result<Self, Self::Error> {
+        let val = match value {
+            TokenKind::DoubleKw => ScalarType::Double,
+            TokenKind::FloatKw => ScalarType::Float,
+            TokenKind::Int32Kw => ScalarType::Int32,
+            TokenKind::Int64Kw => ScalarType::Int64,
+            TokenKind::Uint32Kw => ScalarType::Uint32,
+            TokenKind::Uint64Kw => ScalarType::Uint64,
+            TokenKind::Sint32Kw => ScalarType::Sint32,
+            TokenKind::Sint64Kw => ScalarType::Sint64,
+            TokenKind::Fixed32Kw => ScalarType::Fixed32,
+            TokenKind::Fixed64Kw => ScalarType::Fixed64,
+            TokenKind::SFixed32Kw => ScalarType::Sfixed32,
+            TokenKind::SFixed64Kw => ScalarType::Sfixed64,
+            TokenKind::BoolKw => ScalarType::Bool,
+            TokenKind::StringKw => ScalarType::String,
+            TokenKind::BytesKw => ScalarType::Bytes,
+            _ => return Err(format!("Invalid scalar type: {:?}", value)),
+        };
+
+        Ok(val)
+    }
+}
+impl TryFrom<&TokenKind> for ScalarType {
+    type Error = String;
+
+    fn try_from(value: &TokenKind) -> Result<Self, Self::Error> {
+        let val = match value {
+            TokenKind::DoubleKw => ScalarType::Double,
+            TokenKind::FloatKw => ScalarType::Float,
+            TokenKind::Int32Kw => ScalarType::Int32,
+            TokenKind::Int64Kw => ScalarType::Int64,
+            TokenKind::Uint32Kw => ScalarType::Uint32,
+            TokenKind::Uint64Kw => ScalarType::Uint64,
+            TokenKind::Sint32Kw => ScalarType::Sint32,
+            TokenKind::Sint64Kw => ScalarType::Sint64,
+            TokenKind::Fixed32Kw => ScalarType::Fixed32,
+            TokenKind::Fixed64Kw => ScalarType::Fixed64,
+            TokenKind::SFixed32Kw => ScalarType::Sfixed32,
+            TokenKind::SFixed64Kw => ScalarType::Sfixed64,
+            TokenKind::BoolKw => ScalarType::Bool,
+            TokenKind::StringKw => ScalarType::String,
+            TokenKind::BytesKw => ScalarType::Bytes,
+            _ => return Err(format!("Invalid scalar type: {:?}", value)),
+        };
+
+        Ok(val)
+    }
 }
 
 #[derive(Debug, PartialEq)]
