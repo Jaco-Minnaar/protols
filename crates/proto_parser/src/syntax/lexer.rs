@@ -154,6 +154,24 @@ impl TokenKind {
                 | TokenKind::SFixed64Kw
         )
     }
+
+    pub fn is_map_key_type(&self) -> bool {
+        matches!(
+            self,
+            TokenKind::Int32Kw
+                | TokenKind::Int64Kw
+                | TokenKind::Uint32Kw
+                | TokenKind::Uint64Kw
+                | TokenKind::Sint32Kw
+                | TokenKind::Sint64Kw
+                | TokenKind::Fixed32Kw
+                | TokenKind::Fixed64Kw
+                | TokenKind::SFixed32Kw
+                | TokenKind::SFixed64Kw
+                | TokenKind::BoolKw
+                | TokenKind::StringKw
+        )
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

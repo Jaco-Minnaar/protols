@@ -90,11 +90,12 @@ pub struct EnumNode {
 pub enum EnumElement {
     EnumValue {
         name: String,
-        number: u32,
-        options: Vec<OptionNode>,
+        number: i32,
+        options: Vec<Node<OptionNode>>,
     },
     EnumReserved(Reserved),
-    EnumOption,
+    EnumOption(OptionNode),
+    Empty,
 }
 
 #[derive(Debug)]
@@ -106,6 +107,44 @@ pub struct ExtensionNode {
 #[derive(Debug)]
 pub enum ExtensionElement {
     Field(FieldDeclaration),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum MapKeyType {
+    Int32,
+    Int64,
+    Uint32,
+    Uint64,
+    Sint32,
+    Sint64,
+    Fixed32,
+    Fixed64,
+    Sfixed32,
+    Sfixed64,
+    Bool,
+    String,
+}
+
+impl TryFrom<TokenKind> for MapKeyType {
+    type Error = String;
+
+    fn try_from(value: TokenKind) -> Result<Self, Self::Error> {
+        match value {
+            TokenKind::Int32Kw => Ok(MapKeyType::Int32),
+            TokenKind::Int64Kw => Ok(MapKeyType::Int64),
+            TokenKind::Uint32Kw => Ok(MapKeyType::Uint32),
+            TokenKind::Uint64Kw => Ok(MapKeyType::Uint64),
+            TokenKind::Sint32Kw => Ok(MapKeyType::Sint32),
+            TokenKind::Sint64Kw => Ok(MapKeyType::Sint64),
+            TokenKind::Fixed32Kw => Ok(MapKeyType::Fixed32),
+            TokenKind::Fixed64Kw => Ok(MapKeyType::Fixed64),
+            TokenKind::SFixed32Kw => Ok(MapKeyType::Sfixed32),
+            TokenKind::SFixed64Kw => Ok(MapKeyType::Sfixed64),
+            TokenKind::BoolKw => Ok(MapKeyType::Bool),
+            TokenKind::StringKw => Ok(MapKeyType::String),
+            _ => Err(format!("Invalid map key type: {:?}", value)),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

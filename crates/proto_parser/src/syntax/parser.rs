@@ -13,9 +13,9 @@ use super::{
             OneofDeclaration, OneofElement,
         },
         option::{OptionName, OptionNode, OptionValue},
-        service::{MethodNode, ServiceNode},
-        EnumElement, ExtensionElement, ImportModifier, ImportNode, Node, PackageNode, Reserved,
-        Root, RootNode, ScalarType, SyntaxNode, SyntaxType, TagEnd, TagRange,
+        service::{MessageType, MethodElement, MethodNode, ServiceElement, ServiceNode},
+        EnumElement, ExtensionElement, ImportModifier, ImportNode, MapKeyType, Node, PackageNode,
+        Reserved, Root, RootNode, ScalarType, SyntaxNode, SyntaxType, TagEnd, TagRange,
     },
     lexer::{Token, TokenKind},
 };
@@ -311,7 +311,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         let service_node = Node::new(
             ServiceNode {
                 name: identifier_token.value,
-                methods: elements,
+                elements,
             },
             start,
             end_token.position,
@@ -623,7 +623,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             field_number.position + field_number.value.len(),
         );
 
-        let options = self.compact_options()?;
+        let options = if let Some(TokenKind::LBracket) = self.peek_kind() {
+            self.compact_options()?
+        } else {
+            vec![]
+        };
 
         let end = self.expect(TokenKind::SemiColon)?.position;
 
@@ -696,6 +700,17 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         Ok(field_type)
     }
 
+    fn field_number(&mut self) -> Result<Node<u32>> {
+        let field_number = self.expect(TokenKind::IntLiteral)?;
+        let field_number = Node::new(
+            field_number.value.parse::<u32>().unwrap(),
+            field_number.position,
+            field_number.position + field_number.value.len(),
+        );
+
+        Ok(field_number)
+    }
+
     fn field_name(&mut self) -> Result<Node<String>> {
         let token = self.expect(TokenKind::Identifier)?;
         let start = token.position;
@@ -703,16 +718,185 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         Ok(Node::new(token.value, start, end))
     }
 
-    fn enum_elements(&self) -> Result<Vec<Node<EnumElement>>> {
-        todo!()
+    fn enum_elements(&mut self) -> Result<Vec<Node<EnumElement>>> {
+        _ = self.expect(TokenKind::LBrace)?;
+
+        let mut elements = Vec::new();
+        while !matches!(self.peek_kind(), Some(TokenKind::RBrace)) {
+            let element = self.enum_element()?;
+            elements.push(element);
+        }
+
+        _ = self.expect(TokenKind::RBrace)?;
+
+        Ok(elements)
     }
 
-    fn service_elements(&self) -> Result<Vec<Node<MethodNode>>> {
-        todo!()
+    fn enum_element(&mut self) -> Result<Node<EnumElement>> {
+        match self.peek_kind() {
+            Some(TokenKind::OptionKw) => {
+                let option = self.option_node()?;
+                Ok(Node::new(
+                    EnumElement::EnumOption(option.value),
+                    option.start,
+                    option.end,
+                ))
+            }
+            Some(TokenKind::Identifier) => {
+                let value_name = self.advance().unwrap();
+
+                _ = self.expect(TokenKind::Equals)?;
+
+                let modifier = if let Some(TokenKind::Minus) = self.peek_kind() {
+                    self.advance().unwrap();
+                    -1
+                } else {
+                    1
+                };
+                let value = self.expect(TokenKind::IntLiteral)?;
+                let options = if let Some(TokenKind::LBracket) = self.peek_kind() {
+                    self.compact_options()?
+                } else {
+                    Vec::new()
+                };
+                let end = self.expect(TokenKind::SemiColon)?;
+
+                let value_number = modifier * value.value.parse::<i32>().unwrap();
+                let element = EnumElement::EnumValue {
+                    name: value_name.value,
+                    number: value_number,
+                    options,
+                };
+
+                Ok(Node::new(element, value_name.position, end.position))
+            }
+            Some(TokenKind::ReservedKw) => {
+                let reserved = self.reserved_node()?;
+                Ok(Node::new(
+                    EnumElement::EnumReserved(reserved.value),
+                    reserved.start,
+                    reserved.end,
+                ))
+            }
+            Some(TokenKind::SemiColon) => {
+                let token = self.advance().unwrap();
+                Ok(Node::new(
+                    EnumElement::Empty,
+                    token.position,
+                    token.position,
+                ))
+            }
+            _ => todo!("unknown enum element"),
+        }
     }
 
-    fn extension_elements(&self) -> Result<Vec<Node<ExtensionElement>>> {
-        todo!()
+    fn service_elements(&mut self) -> Result<Vec<Node<ServiceElement>>> {
+        _ = self.expect(TokenKind::LBrace)?;
+
+        let mut elements = Vec::new();
+
+        while !matches!(self.peek_kind(), Some(TokenKind::RBrace)) {
+            let element = self.service_element()?;
+            elements.push(element);
+        }
+
+        _ = self.expect(TokenKind::RBrace)?;
+
+        Ok(elements)
+    }
+
+    fn service_element(&mut self) -> Result<Node<ServiceElement>> {
+        match self.peek_kind() {
+            Some(TokenKind::OptionKw) => {
+                let option = self.option_node()?;
+                Ok(Node::new(
+                    ServiceElement::Option(option.value),
+                    option.start,
+                    option.end,
+                ))
+            }
+            Some(TokenKind::SemiColon) => {
+                let token = self.advance().unwrap();
+                Ok(Node::new(
+                    ServiceElement::Empty,
+                    token.position,
+                    token.position,
+                ))
+            }
+            Some(TokenKind::RpcKw) => {
+                let start = self.advance().unwrap().position;
+                let rpc_name = self.expect(TokenKind::Identifier)?;
+
+                let input_type = self.rpc_message_type()?;
+                _ = self.expect(TokenKind::ReturnsKw)?;
+                let output_type = self.rpc_message_type()?;
+
+                let mut message_element = MethodNode {
+                    name: rpc_name.value,
+                    input_type,
+                    output_type,
+                    elements: Vec::new(),
+                };
+                let end = if let Some(TokenKind::LBrace) = self.peek_kind() {
+                    loop {
+                        let element = match self.peek_kind() {
+                            Some(TokenKind::OptionKw) => {
+                                let option = self.option_node()?;
+                                Node::new(
+                                    MethodElement::Option(option.value),
+                                    option.start,
+                                    option.end,
+                                )
+                            }
+                            Some(TokenKind::SemiColon) => {
+                                let token = self.advance().unwrap();
+                                Node::new(MethodElement::Empty, token.position, token.position)
+                            }
+                            Some(TokenKind::RBrace) => break,
+                            _ => todo!("unknown rpc element"),
+                        };
+                        message_element.elements.push(element);
+                    }
+
+                    self.expect(TokenKind::RBrace)?.position
+                } else {
+                    self.expect(TokenKind::SemiColon)?.position
+                };
+
+                Ok(Node::new(
+                    ServiceElement::Method(message_element),
+                    start,
+                    end,
+                ))
+            }
+            _ => todo!("unknown service element"),
+        }
+    }
+
+    fn rpc_message_type(&mut self) -> Result<Node<MessageType>> {
+        let start = self.expect(TokenKind::LParen)?.position;
+        let stream = if let Some(TokenKind::StreamKw) = self.peek_kind() {
+            self.advance().unwrap();
+            true
+        } else {
+            false
+        };
+        let name = self.type_name()?;
+        let end = self.expect(TokenKind::RParen)?.position;
+
+        let message_type = MessageType {
+            stream,
+            type_name: name,
+        };
+
+        Ok(Node::new(message_type, start, end))
+    }
+
+    fn extension_elements(&mut self) -> Result<Vec<Node<ExtensionElement>>> {
+        Err(ParseError::new(
+            "extension elements are not supported yet".into(),
+            self.tokens.peek().unwrap().position,
+        ))
     }
 
     fn type_name(&mut self) -> Result<Node<TypeName>> {
@@ -764,8 +948,58 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         }
     }
 
-    fn map_field_decl(&self) -> Result<Node<MapFieldDeclaration>> {
-        todo!()
+    fn map_field_decl(&mut self) -> Result<Node<MapFieldDeclaration>> {
+        let start = self.expect(TokenKind::MapKw)?.position;
+        _ = self.expect(TokenKind::LAngle)?;
+        let key_type = self.map_key_type()?;
+        _ = self.expect(TokenKind::Comma)?;
+        let value_type = self.field_type()?;
+        _ = self.expect(TokenKind::RAngle)?;
+
+        let name = self.field_name()?;
+        _ = self.expect(TokenKind::Equals)?;
+        let number = self.field_number()?;
+
+        let options = if let Some(TokenKind::LBracket) = self.peek_kind() {
+            self.compact_options()?
+        } else {
+            Vec::new()
+        };
+
+        let end = self.expect(TokenKind::SemiColon)?.position;
+
+        let field = MapFieldDeclaration {
+            key_type,
+            value_type,
+            name,
+            number,
+            options,
+        };
+
+        Ok(Node::new(field, start, end))
+    }
+
+    fn map_key_type(&mut self) -> Result<Node<MapKeyType>> {
+        match self.peek_kind() {
+            Some(tk) if tk.is_map_key_type() => {
+                let token = self.advance().unwrap();
+                let end = token.position + token.value.len();
+                Ok(Node::new(
+                    token
+                        .kind
+                        .try_into()
+                        .or_else(|e| Err(ParseError::new(e, token.position)))?,
+                    token.position,
+                    end,
+                ))
+            }
+            _ => {
+                return Err(ParseError::new(
+                    format!("Expected map key type"),
+                    self.tokens.peek().unwrap().position,
+                ));
+            }
+        }
     }
 
     fn oneof_node(&mut self) -> Result<Node<OneofDeclaration>> {

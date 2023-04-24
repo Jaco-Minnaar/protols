@@ -1,6 +1,8 @@
 use crate::syntax::lexer::TokenKind;
 
-use super::{option::OptionNode, EnumNode, ExtensionNode, Node, Reserved, ScalarType, TypeName};
+use super::{
+    option::OptionNode, EnumNode, ExtensionNode, MapKeyType, Node, Reserved, ScalarType, TypeName,
+};
 
 #[derive(Debug)]
 pub struct MessageNode {
@@ -19,11 +21,11 @@ pub struct FieldDeclaration {
 
 #[derive(Debug)]
 pub struct MapFieldDeclaration {
-    pub key_type: Node<ScalarType>,
+    pub key_type: Node<MapKeyType>,
     pub value_type: Node<FieldType>,
     pub name: Node<String>,
     pub number: Node<u32>,
-    pub options: Node<Vec<OptionNode>>,
+    pub options: Vec<Node<OptionNode>>,
 }
 
 #[derive(Debug)]
