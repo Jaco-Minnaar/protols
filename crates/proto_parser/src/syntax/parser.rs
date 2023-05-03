@@ -82,14 +82,18 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn expect(&mut self, token_kind: TokenKind) -> Result<Token> {
-        if let Some(t) = self.peek_kind() {
+        let next = if let Some(t) = self.peek_kind() {
             if t == token_kind {
                 return Ok(self.advance().unwrap());
             }
-        }
+
+            Some(t)
+        } else {
+            None
+        };
 
         Err(ParseError::new(
-            format!("Expected token: {:?}", token_kind),
+            format!("Expected token: {:?}. Got: {:?}", token_kind, next),
             self.tokens.peek().unwrap().position,
         ))
     }
@@ -139,7 +143,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             Some(_) => {
                 let token = self.advance().unwrap();
                 let err = ParseError::new(
-                    format!("Unexpected token: {:?}", token.kind),
+                    format!("Unexpected token: {:?}. Expected root node", token.kind),
                     token.position,
                 );
                 return Err(err);
@@ -190,6 +194,8 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn package_node(&mut self) -> Result<Node<PackageNode>> {
+        let start = self.advance().unwrap().position;
+
         let name = self.qualified_identifier()?;
 
         let end_token = self.expect(TokenKind::SemiColon)?;
@@ -200,7 +206,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             PackageNode {
                 package_name: name.value,
             },
-            name.start,
+            start,
             end_token.position,
         );
         Ok(package_node)
@@ -315,7 +321,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
         let identifier_token = self.expect(TokenKind::Identifier)?;
 
-        self.expect(TokenKind::LBrace)?;
+        self.expect(TokenKind::LBrace).unwrap();
 
         let elements = self.service_elements()?;
 
@@ -804,16 +810,12 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn service_elements(&mut self) -> Result<Vec<Node<ServiceElement>>> {
-        _ = self.expect(TokenKind::LBrace)?;
-
         let mut elements = Vec::new();
 
         while !matches!(self.peek_kind(), Some(TokenKind::RBrace)) {
             let element = self.service_element()?;
             elements.push(element);
         }
-
-        _ = self.expect(TokenKind::RBrace)?;
 
         Ok(elements)
     }
@@ -1478,5 +1480,20 @@ mod tests {
             "{:?}",
             field
         );
+    }
+
+    #[test]
+    fn parse_service() {
+        let input = r#"
+            service Test {
+            }
+        "#;
+
+        let tokens = tokenize(input);
+        let parser = Parser::new(tokens);
+
+        let result = parser.parse("");
+
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
     }
 }
