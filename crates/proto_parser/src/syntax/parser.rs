@@ -20,11 +20,13 @@ use super::{
     lexer::{Token, TokenKind},
 };
 
+#[derive(Debug)]
 pub struct ParseResult {
     pub root: Root,
     pub errors: Vec<ParseError>,
 }
 
+#[derive(Debug)]
 pub struct ParseError {
     pub message: String,
     pub position: usize,
@@ -39,6 +41,7 @@ impl ParseError {
 type Result<T> = std::result::Result<T, ParseError>;
 
 pub struct Parser<I: Iterator<Item = Token>> {
+    line: usize,
     tokens: Peekable<I>,
     errors: Vec<ParseError>,
 }
@@ -46,6 +49,7 @@ pub struct Parser<I: Iterator<Item = Token>> {
 impl<I: Iterator<Item = Token>> Parser<I> {
     pub fn new(tokens: I) -> Self {
         Self {
+            line: 0,
             tokens: tokens.peekable(),
             errors: Vec::new(),
         }
@@ -79,7 +83,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn expect(&mut self, token_kind: TokenKind) -> Result<Token> {
         if let Some(t) = self.peek_kind() {
-            if *t == token_kind {
+            if t == token_kind {
                 return Ok(self.advance().unwrap());
             }
         }
@@ -90,11 +94,18 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         ))
     }
 
-    fn peek_kind(&mut self) -> Option<&TokenKind> {
-        if let Some(t) = self.tokens.peek() {
-            Some(&t.kind)
-        } else {
-            None
+    fn peek_kind(&mut self) -> Option<TokenKind> {
+        match self.tokens.peek() {
+            Some(Token {
+                kind: TokenKind::NewLine,
+                ..
+            }) => {
+                self.line += 1;
+                self.advance();
+                self.peek_kind()
+            }
+            Some(token) => Some(token.kind),
+            None => None,
         }
     }
 
@@ -125,7 +136,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             Some(TokenKind::EnumKw) => RootNode::EnumDeclaration(self.enum_node()?),
             Some(TokenKind::ServiceKw) => RootNode::ServiceDeclaration(self.service_node()?),
             Some(TokenKind::ExtendKw) => RootNode::ExtensionDeclaration(self.extend_node()?),
-            _ => {
+            Some(_) => {
                 let token = self.advance().unwrap();
                 let err = ParseError::new(
                     format!("Unexpected token: {:?}", token.kind),
@@ -133,6 +144,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 );
                 return Err(err);
             }
+            None => RootNode::Empty,
         };
 
         Ok(result)
@@ -143,11 +155,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
         self.expect(TokenKind::Equals)?;
 
-        let token_kind = if let Some(TokenKind::StringKw) = self.peek_kind() {
+        let token_kind = if let Some(TokenKind::String) = self.peek_kind() {
             let token = self.advance().unwrap();
             match token.value.as_str() {
-                "proto2" => SyntaxType::Proto2,
-                "proto3" => SyntaxType::Proto3,
+                "\"proto2\"" => SyntaxType::Proto2,
+                "\"proto3\"" => SyntaxType::Proto3,
                 _ => {
                     let err = ParseError::new(
                         format!("Invalid syntax version: {:?}", token.kind),
@@ -157,8 +169,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 }
             }
         } else {
+            let token = self.tokens.peek().unwrap();
             let err = ParseError::new(
-                format!("Expected string after '='",),
+                format!("Expected string after '=', got {:?}", token.kind),
                 self.tokens.peek().unwrap().position,
             );
             return Err(err);
@@ -1036,32 +1049,20 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 ))
             }
             Some(TokenKind::Identifier) | Some(TokenKind::Dot) => {
-                let element_type = self.type_name()?;
-                let start = element_type.start;
-                let name = self.field_name()?;
-                self.expect(TokenKind::Equals)?;
-                let number = self.expect(TokenKind::IntLiteral)?;
-                let number = Node::new(
-                    number.value.parse::<u32>().unwrap(),
-                    number.position,
-                    number.position + number.value.len(),
-                );
-                let options = if let Some(TokenKind::RBrace) = self.peek_kind() {
-                    Some(self.compact_options()?)
-                } else {
-                    None
-                };
-
-                let end = self.expect(TokenKind::SemiColon)?.position;
-
-                let element = OneofElement::OneofField(OneofField {
-                    type_name: element_type,
-                    name,
-                    number,
-                    options,
-                });
-
-                Ok(Node::new(element, start, end))
+                let field = self.oneof_field_decl()?;
+                Ok(Node::new(
+                    OneofElement::OneofField(field.value),
+                    field.start,
+                    field.end,
+                ))
+            }
+            Some(kind) if kind.is_scalar_kw() => {
+                let field = self.oneof_field_decl()?;
+                Ok(Node::new(
+                    OneofElement::OneofField(field.value),
+                    field.start,
+                    field.end,
+                ))
             }
             _ => {
                 let err = ParseError::new(
@@ -1072,6 +1073,64 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 return Err(err);
             }
         }
+    }
+
+    fn oneof_field_decl(&mut self) -> Result<Node<OneofField>> {
+        let field_type = match self.peek_kind() {
+            Some(TokenKind::Identifier) | Some(TokenKind::Dot) => {
+                let type_name = self.type_name()?;
+                Node::new(
+                    FieldType::TypeName(type_name.value),
+                    type_name.start,
+                    type_name.end,
+                )
+            }
+            Some(kind) if kind.is_scalar_kw() => {
+                let start = self.advance().unwrap();
+                let scalar_type = Node::new(
+                    ScalarType::try_from(start.kind).unwrap(),
+                    start.position,
+                    start.position + start.value.len(),
+                );
+                Node::new(
+                    FieldType::ScalarType(scalar_type.value),
+                    scalar_type.start,
+                    scalar_type.end,
+                )
+            }
+            _ => {
+                return Err(ParseError::new(
+                    format!("Expected oneof field type"),
+                    self.tokens.peek().unwrap().position,
+                ));
+            }
+        };
+
+        let name = self.field_name()?;
+        self.expect(TokenKind::Equals)?;
+        let number = self.expect(TokenKind::IntLiteral)?;
+        let number = Node::new(
+            number.value.parse::<u32>().unwrap(),
+            number.position,
+            number.position + number.value.len(),
+        );
+        let options = if let Some(TokenKind::RBrace) = self.peek_kind() {
+            Some(self.compact_options()?)
+        } else {
+            None
+        };
+
+        let end = self.expect(TokenKind::SemiColon)?.position;
+
+        let field = OneofField {
+            type_name: field_type,
+            name,
+            number,
+            options,
+        };
+        let start = field.type_name.start;
+
+        Ok(Node::new(field, start, end))
     }
 
     fn compact_options(&mut self) -> Result<Vec<Node<OptionNode>>> {
