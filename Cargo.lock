@@ -189,19 +189,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "proto_lsp"
-version = "0.1.0"
-dependencies = [
- "proto_parser",
-]
-
-[[package]]
 name = "proto_parser"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "log",
  "phf",
+]
+
+[[package]]
+name = "protols"
+version = "0.1.0"
+dependencies = [
+ "proto_parser",
 ]
 
 [[package]]
@@ -267,6 +267,7 @@ dependencies = [
  "dotenv",
  "env_logger",
  "log",
+ "protols",
 ]
 
 [[package]]
