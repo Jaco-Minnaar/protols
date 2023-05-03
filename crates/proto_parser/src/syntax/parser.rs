@@ -1231,3 +1231,252 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         Ok(names)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::syntax::{
+        ast::{
+            message::{
+                FieldCardinality, FieldDeclaration, FieldType, MapFieldDeclaration, MessageElement,
+                OneofDeclaration, OneofElement, OneofField,
+            },
+            MapKeyType, Node, RootNode, ScalarType, TypeName,
+        },
+        lexer::tokenize,
+    };
+
+    use super::Parser;
+
+    #[test]
+    fn parse_message() {
+        let input = r#"
+            syntax = "proto3";
+
+            message Test {
+                int32 a = 1;
+                string b = 2;
+                bool c = 3;
+                bytes d = 4;
+                Test e = 5;
+                repeated int32 f = 6;
+                map<string, int32> g = 7;
+                oneof h {
+                    int32 i = 8;
+                    string j = 9;
+                }
+            }
+        "#;
+
+        let tokens = tokenize(input);
+        let parser = Parser::new(tokens);
+
+        let node = parser.parse("");
+
+        assert!(node.errors.is_empty(), "{:?}", node.errors);
+        assert_eq!(node.root.nodes.len(), 2);
+
+        let message = &node.root.nodes[1];
+        assert!(
+            matches!(message, crate::syntax::ast::RootNode::MessageDeclaration(_)),
+            "Expected RootNode::MessageDeclaration. Got: {:?}",
+            message
+        );
+        let message = match message {
+            RootNode::MessageDeclaration(m) => m,
+            rn => panic!("Expected RootNode::MessageDeclaration. Got: {:?}", rn),
+        };
+
+        let message_node = &message.value;
+
+        assert_eq!(message_node.name, "Test");
+        assert_eq!(message_node.elements.len(), 8);
+
+        let field = &message_node.elements[0];
+
+        assert!(matches!(
+            &field.value,
+            MessageElement::FieldDeclaration(FieldDeclaration {
+                cardinality: Node {
+                    value: FieldCardinality::Optional,
+                    ..
+                },
+                type_name: Node {
+                    value: FieldType::ScalarType(ScalarType::Int32),
+                    ..
+                },
+                name: Node { value, .. },
+                number: Node { value: 1, .. },
+                ..
+            }) if value == "a"
+        ));
+
+        let field = &message_node.elements[1];
+
+        assert!(matches!(
+            &field.value,
+            MessageElement::FieldDeclaration(FieldDeclaration {
+                cardinality: Node {
+                    value: FieldCardinality::Optional,
+                    ..
+                },
+                type_name: Node {
+                    value: FieldType::ScalarType(ScalarType::String),
+                    ..
+                },
+                name: Node { value, .. },
+                number: Node { value: 2, .. },
+                ..
+            }) if value == "b"
+        ));
+
+        let field = &message_node.elements[2];
+
+        assert!(matches!(
+            &field.value,
+            MessageElement::FieldDeclaration(FieldDeclaration {
+                cardinality: Node {
+                    value: FieldCardinality::Optional,
+                    ..
+                },
+                type_name: Node {
+                    value: FieldType::ScalarType(ScalarType::Bool),
+                    ..
+                },
+                name: Node { value, .. },
+                number: Node { value: 3, .. },
+                ..
+            }) if value == "c"
+        ));
+
+        let field = &message_node.elements[3];
+
+        assert!(matches!(
+            &field.value,
+            MessageElement::FieldDeclaration(FieldDeclaration {
+                cardinality: Node {
+                    value: FieldCardinality::Optional,
+                    ..
+                },
+                type_name: Node {
+                    value: FieldType::ScalarType(ScalarType::Bytes),
+                    ..
+                },
+                name: Node { value, .. },
+                number: Node { value: 4, .. },
+                ..
+            }) if value == "d"
+        ));
+
+        let field = &message_node.elements[4];
+
+        assert!(
+            matches!(
+                &field.value,
+                MessageElement::FieldDeclaration(FieldDeclaration {
+                    cardinality: Node {
+                        value: FieldCardinality::Optional,
+                        ..
+                    },
+                    type_name: Node {
+                        value: FieldType::TypeName(TypeName {absolute: false, parts}),
+                        ..
+                    },
+                    name: Node { value, .. },
+                    number: Node { value: 5, .. },
+                    ..
+                }) if value == "e" && parts.len() == 1 && parts[0] == "Test"
+            ),
+            "{:?}",
+            field
+        );
+
+        let field = &message_node.elements[5];
+
+        assert!(
+            matches!(
+                &field.value,
+                MessageElement::FieldDeclaration(FieldDeclaration {
+                    cardinality: Node {
+                        value: FieldCardinality::Repeated,
+                        ..
+                    },
+                    type_name: Node {
+                        value: FieldType::ScalarType(ScalarType::Int32),
+                        ..
+                    },
+                    name: Node { value, .. },
+                    number: Node { value: 6, .. },
+                    ..
+                }) if value == "f"
+            ),
+            "{:?}",
+            field
+        );
+
+        let field = &message_node.elements[6];
+
+        assert!(
+            matches!(
+                &field.value,
+                MessageElement::MapFieldDeclaration(MapFieldDeclaration {
+                    key_type: Node {
+                        value: MapKeyType::String,
+                        ..
+                    },
+                    value_type: Node {
+                        value: FieldType::ScalarType(ScalarType::Int32),
+                        ..
+                    },
+                    name: Node { value, .. },
+                    number: Node { value: 7, .. },
+                    ..
+                }) if value == "g"
+            ),
+            "{:?}",
+            field
+        );
+
+        let field = &message_node.elements[7];
+
+        assert!(
+            matches!(
+                &field.value,
+                MessageElement::OneOfDeclaration(OneofDeclaration {
+                    name: Node { value, ..},
+                    elements: oneof_elements,
+                }) if value == "h"
+                    && oneof_elements.len() == 2
+                    && matches!(
+                        &oneof_elements[0].value,
+                        OneofElement::OneofField(
+                            OneofField {
+                                type_name: Node {
+                                    value: FieldType::ScalarType(ScalarType::Int32),
+                                    ..
+                                },
+                                name: Node { value, .. },
+                                number: Node { value: 8, .. },
+                                ..
+                            }
+                        ) if value == "i"
+                    )
+                    && matches!(
+                        &oneof_elements[1].value,
+                        OneofElement::OneofField(
+                            OneofField {
+                                type_name: Node {
+                                    value: FieldType::ScalarType(ScalarType::String),
+                                    ..
+                                },
+                                name: Node { value, .. },
+                                number: Node { value: 9, .. },
+                                ..
+                            }
+                        ) if value == "j"
+                    )
+            ),
+            "{:?}",
+            field
+        );
+    }
+}

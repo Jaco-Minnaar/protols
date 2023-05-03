@@ -81,7 +81,7 @@ pub enum OneofElement {
 
 #[derive(Debug)]
 pub struct OneofField {
-    pub type_name: Node<TypeName>,
+    pub type_name: Node<FieldType>,
     pub name: Node<String>,
     pub number: Node<u32>,
     pub options: Option<Vec<Node<OptionNode>>>,

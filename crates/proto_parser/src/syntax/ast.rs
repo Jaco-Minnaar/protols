@@ -20,6 +20,7 @@ pub enum RootNode {
     OptionDeclaration(Node<OptionNode>),
     EnumDeclaration(Node<EnumNode>),
     ExtensionDeclaration(Node<ExtensionNode>),
+    Empty,
 }
 
 #[derive(Debug)]
