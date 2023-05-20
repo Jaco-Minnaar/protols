@@ -256,7 +256,6 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
         let option_value = self.option_value()?;
 
-        dbg!(start, &option_name);
         let end = if start != option_name.start {
             self.expect(TokenKind::SemiColon)?.position
         } else {
@@ -433,13 +432,10 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     name.push(part);
                 }
                 c => {
-                    dbg!(c);
                     break;
                 }
             }
         }
-
-        dbg!(&name);
 
         if name.is_empty() {
             return Err(ParseError::new(
@@ -878,7 +874,6 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                         let element = match self.peek_kind() {
                             Some(TokenKind::OptionKw) => {
                                 let option = self.option_node()?;
-                                // dbg!(option);
                                 Node::new(
                                     MethodElement::Option(option.value),
                                     option.start,
