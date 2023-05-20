@@ -26,13 +26,17 @@ message User {
 service UserService {
   rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
-  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse) {
+    option deprecated = true;
+    option is_not_used = true;
+  };
   rpc GetUser(GetUserRequest) returns (GetUserResponse);
 }
 
 message CreateUserRequest {
   Name name = 1;
   Address address = 2;
+  string email = 3 [deprecated = true, is_not_used = true];
 }
 
 message CreateUserResponse {

@@ -244,15 +244,24 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn option_node(&mut self) -> Result<Node<OptionNode>> {
-        let start = self.advance().unwrap().position;
-
-        let option_name = self.option_name()?;
+        let (start, option_name) = if let Some(TokenKind::OptionKw) = self.peek_kind() {
+            let start = self.advance().unwrap().position;
+            (start, self.option_name()?)
+        } else {
+            let option_name = self.option_name()?;
+            (option_name.start, option_name)
+        };
 
         self.expect(TokenKind::Equals)?;
 
         let option_value = self.option_value()?;
 
-        let end_token = self.expect(TokenKind::SemiColon)?;
+        dbg!(start, &option_name);
+        let end = if start != option_name.start {
+            self.expect(TokenKind::SemiColon)?.position
+        } else {
+            option_value.end
+        };
 
         let option_node = Node::new(
             OptionNode {
@@ -260,7 +269,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 value: option_value,
             },
             start,
-            end_token.position,
+            end,
         );
 
         Ok(option_node)
@@ -404,10 +413,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             match self.peek_kind() {
                 Some(TokenKind::Identifier) => {
                     let identifier = self.advance().unwrap();
+                    let end = identifier.position + identifier.value.len();
                     let part = Node::new(
                         OptionNamePart::SimpleName(identifier.value),
                         identifier.position,
-                        identifier.position,
+                        end,
                     );
                     name.push(part);
                 }
@@ -422,11 +432,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
                     name.push(part);
                 }
-                _ => {
+                c => {
+                    dbg!(c);
                     break;
                 }
             }
         }
+
+        dbg!(&name);
 
         if name.is_empty() {
             return Err(ParseError::new(
@@ -522,6 +535,12 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 let token = self.advance().unwrap();
                 let end = token.position + token.value.len();
                 let value = Node::new(OptionValue::FloatLiteral(token.value), token.position, end);
+                Ok(value)
+            }
+            Some(TokenKind::Identifier) => {
+                let token = self.advance().unwrap();
+                let end = token.position + token.value.len();
+                let value = Node::new(OptionValue::Identifier(token.value), token.position, end);
                 Ok(value)
             }
             _ => {
@@ -846,17 +865,20 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 _ = self.expect(TokenKind::ReturnsKw)?;
                 let output_type = self.rpc_message_type()?;
 
-                let mut message_element = MethodNode {
+                let mut method_element = MethodNode {
                     name: rpc_name.value,
                     input_type,
                     output_type,
                     elements: Vec::new(),
                 };
+
                 let end = if let Some(TokenKind::LBrace) = self.peek_kind() {
+                    self.advance().unwrap();
                     loop {
                         let element = match self.peek_kind() {
                             Some(TokenKind::OptionKw) => {
                                 let option = self.option_node()?;
+                                // dbg!(option);
                                 Node::new(
                                     MethodElement::Option(option.value),
                                     option.start,
@@ -867,10 +889,19 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                                 let token = self.advance().unwrap();
                                 Node::new(MethodElement::Empty, token.position, token.position)
                             }
-                            Some(TokenKind::RBrace) => break,
+                            Some(TokenKind::RBrace) => {
+                                break;
+                            }
+                            Some(kind) => {
+                                let error = ParseError::new(
+                                    format!("unexpected token kind {:?}", kind),
+                                    self.tokens.peek().unwrap().position,
+                                );
+                                return Err(error);
+                            }
                             _ => todo!("unknown rpc element"),
                         };
-                        message_element.elements.push(element);
+                        method_element.elements.push(element);
                     }
 
                     self.expect(TokenKind::RBrace)?.position
@@ -879,10 +910,17 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 };
 
                 Ok(Node::new(
-                    ServiceElement::Method(message_element),
+                    ServiceElement::Method(method_element),
                     start,
                     end,
                 ))
+            }
+            Some(kind) => {
+                let error = ParseError::new(
+                    format!("unexpected token kind {:?}", kind),
+                    self.tokens.peek().unwrap().position,
+                );
+                Err(error)
             }
             _ => todo!("unknown service element"),
         }
@@ -1146,10 +1184,10 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
             if let Some(TokenKind::Comma) = self.peek_kind() {
                 self.advance().unwrap();
-            } else {
-                break;
             }
         }
+
+        self.expect(TokenKind::RBracket)?;
 
         Ok(options)
     }
@@ -1486,6 +1524,40 @@ mod tests {
     fn parse_service() {
         let input = r#"
             service Test {
+            }
+        "#;
+
+        let tokens = tokenize(input);
+        let parser = Parser::new(tokens);
+
+        let result = parser.parse("");
+
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+    }
+
+    #[test]
+    fn parse_rpc_with_option() {
+        let input = r#"
+            service Test {
+                rpc Test (TestRequest) returns (TestResponse) {
+                    option deprecated = true;
+                }
+            }
+        "#;
+
+        let tokens = tokenize(input);
+        let parser = Parser::new(tokens);
+
+        let result = parser.parse("");
+
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+    }
+
+    #[test]
+    fn parse_message_with_option_on_field() {
+        let input = r#"
+            message Test {
+                optional int32 a = 1 [deprecated = true];
             }
         "#;
 
