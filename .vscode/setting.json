@@ -1,0 +1,9 @@
+{
+  "files.exclude": {
+    "out": false
+  },
+  "npm.exclude": ["**/client", "**/server"],
+  "search.exclude": {
+    "out": true
+  }
+}

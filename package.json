@@ -1,32 +1,73 @@
 {
-  "name": "proto_lsp",
-  "version": "0.1.0",
-  "description": "A language server for Protocol Buffers written in Rust",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Jaco-Minnaar/protols.git"
-  },
-  "keywords": [
-    "lsp",
-    "proto",
-    "protobuf"
-  ],
-  "author": "Jaco Minnaar",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/Jaco-Minnaar/protols/issues"
-  },
-  "homepage": "https://github.com/Jaco-Minnaar/protols#readme",
-  "devDependencies": {
-    "@types/node": "^20.2.1",
-    "@typescript-eslint/parser": "^5.59.6",
-    "@vscode/vsce": "^2.19.0",
-    "concurrently": "^8.0.1",
-    "eslint": "^8.41.0",
-    "typescript": "^5.0.4"
-  }
+    "name": "proto_lsp",
+    "version": "0.1.0",
+    "description": "A language server for Protocol Buffers written in Rust",
+    "main": "./client/dist/extension",
+    "engines": {
+        "vscode": "^1.52.0"
+    },
+    "activationEvents": [
+        "onLanguage:plaintext"
+    ],
+    "contributes": {
+        "configuration": {
+            "type": "object",
+            "title": "Protobuf Language Server",
+            "properties": {
+                "protols.logLevel": {
+                    "scope": "window",
+                    "type": "string",
+                    "default": "info",
+                    "enum": [
+                        "trace",
+                        "debug",
+                        "info",
+                        "warn",
+                        "error"
+                    ],
+                    "description": "Change the log level of the language server. This change happens live and does not require a restart."
+                },
+                "protols.trace.server": {
+                    "scope": "window",
+                    "type": "string",
+                    "enum": [
+                        "off",
+                        "messages",
+                        "verbose"
+                    ],
+                    "default": "off",
+                    "description": "Traces the communication between VS Code and the language server."
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -b",
+        "watch": "concurrently \"tsc -b -w\" \"cd server && cargo watch -x build\"",
+        "postinstall": "cd client && npm install && cd ../server && npm install && cd .."
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Jaco-Minnaar/protols.git"
+    },
+    "keywords": [
+        "lsp",
+        "proto",
+        "protobuf"
+    ],
+    "author": "Jaco Minnaar",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/Jaco-Minnaar/protols/issues"
+    },
+    "homepage": "https://github.com/Jaco-Minnaar/protols#readme",
+    "devDependencies": {
+        "@types/node": "^20.2.1",
+        "@typescript-eslint/parser": "^5.59.6",
+        "@vscode/vsce": "^2.19.0",
+        "concurrently": "^8.0.1",
+        "eslint": "^8.41.0",
+        "typescript": "^5.0.4"
+    }
 }

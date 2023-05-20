@@ -1,17 +1,16 @@
 {
-  "name": "protols-vscode-client",
-  "version": "0.1.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "@types/vscode": "^1.78.0"
-  },
-  "dependencies": {
-    "vscode-languageclient": "^8.1.0"
-  }
+    "name": "protols-vscode-client",
+    "version": "0.1.0",
+    "description": "",
+    "author": "",
+    "license": "ISC",
+    "engines": {
+        "vscode": "^1.75.0"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.78.0"
+    },
+    "dependencies": {
+        "vscode-languageclient": "^8.1.0"
+    }
 }
