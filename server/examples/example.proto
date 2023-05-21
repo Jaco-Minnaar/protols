@@ -21,6 +21,10 @@ message User {
   Address address = 3;
 }
 
+message Something {
+  User user = 1;
+}
+
 service UserService {
   rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);

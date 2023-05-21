@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use protols::parser::{tokenize, ParseResult, Parser};
+use protols::parser::Source;
 use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{
@@ -24,24 +24,22 @@ impl ProtoLanguageServer {
 #[derive(Debug)]
 pub struct Backend {
     pub client: Client,
-    pub parse_result: Option<ParseResult>,
+    pub source: Source,
 }
 
 impl Backend {
     pub fn new(client: Client) -> Self {
         Self {
             client,
-            parse_result: None,
+            source: Source::new(),
         }
     }
 
     pub async fn did_save(&mut self, params: DidSaveTextDocumentParams) {
         let path = params.text_document.uri.path();
         let file = tokio::fs::read_to_string(path).await.unwrap();
-        let tokens = tokenize(&file);
-        let parser = Parser::new(tokens);
-        let ast = parser.parse(&file);
-        self.parse_result.replace(ast);
+
+        self.source.parse(path, &file);
     }
 }
 
@@ -80,22 +78,22 @@ impl LanguageServer for ProtoLanguageServer {
         self.0.write().await.did_save(params).await;
     }
 
-    async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
-        log::info!("completion");
-        Ok(Some(CompletionResponse::Array(vec![
-            CompletionItem {
-                label: "JavaScript".to_string(),
-                kind: Some(CompletionItemKind::TEXT),
-                data: Some(1.into()),
-                ..Default::default()
-            },
-            CompletionItem {
-                label: "TypeScript".to_string(),
-                kind: Some(CompletionItemKind::TEXT),
-                data: Some(1.into()),
-                ..Default::default()
-            },
-        ])))
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        let line = params.text_document_position.position.line as usize;
+        let column = params.text_document_position.position.character as usize;
+
+        let items = self.0.read().await.source.completions(line, column);
+
+        Ok(Some(CompletionResponse::Array(
+            items
+                .iter()
+                .map(|item| CompletionItem {
+                    label: item.to_string(),
+                    kind: Some(CompletionItemKind::STRUCT),
+                    ..Default::default()
+                })
+                .collect(),
+        )))
     }
 
     async fn shutdown(&self) -> Result<()> {
