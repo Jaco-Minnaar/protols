@@ -4,46 +4,46 @@ use crate::syntax::cursor::Cursor;
 
 use super::cursor::EOF_CHAR;
 
-static KEYWORD: phf::Map<&'static str, TokenKind> = phf_map! {
-    "syntax" => TokenKind::SyntaxKw,
-    "import" => TokenKind::ImportKw,
-    "weak" => TokenKind::WeakKw,
-    "public" => TokenKind::PublicKw,
-    "package" => TokenKind::PackageKw,
-    "option" => TokenKind::OptionKw,
-    "inf" => TokenKind::InfKw,
-    "repeated" => TokenKind::RepeatedKw,
-    "optional" => TokenKind::OptionalKw,
-    "required" => TokenKind::RequiredKw,
-    "bool" => TokenKind::BoolKw,
-    "string" => TokenKind::StringKw,
-    "bytes" => TokenKind::BytesKw,
-    "float" => TokenKind::FloatKw,
-    "double" => TokenKind::DoubleKw,
-    "int32" => TokenKind::Int32Kw,
-    "int64" => TokenKind::Int64Kw,
-    "uint32" => TokenKind::Uint32Kw,
-    "uint64" => TokenKind::Uint64Kw,
-    "sint32" => TokenKind::Sint32Kw,
-    "sint64" => TokenKind::Sint64Kw,
-    "fixed32" => TokenKind::Fixed32Kw,
-    "fixed64" => TokenKind::Fixed64Kw,
-    "sfixed32" => TokenKind::SFixed32Kw,
-    "sfixed64" => TokenKind::SFixed64Kw,
-    "group" => TokenKind::GroupKw,
-    "oneof" => TokenKind::OneofKw,
-    "map" => TokenKind::MapKw,
-    "extensions" => TokenKind::ExtensionsKw,
-    "to" => TokenKind::ToKw,
-    "max" => TokenKind::MaxKw,
-    "reserved" => TokenKind::ReservedKw,
-    "enum" => TokenKind::EnumKw,
-    "message" => TokenKind::MessageKw,
-    "extend" => TokenKind::ExtendKw,
-    "service" => TokenKind::ServiceKw,
-    "rpc" => TokenKind::RpcKw,
-    "stream" => TokenKind::StreamKw,
-    "returns" => TokenKind::ReturnsKw,
+static KEYWORD: phf::Map<&'static str, Keyword> = phf_map! {
+    "syntax" => Keyword::Syntax,
+    "import" => Keyword::Import,
+    "weak" => Keyword::Weak,
+    "public" => Keyword::Public,
+    "package" => Keyword::Package,
+    "option" => Keyword::Option,
+    "inf" => Keyword::Inf,
+    "repeated" => Keyword::Repeated,
+    "optional" => Keyword::Optional,
+    "required" => Keyword::Required,
+    "bool" => Keyword::Bool,
+    "string" => Keyword::String,
+    "bytes" => Keyword::Bytes,
+    "float" => Keyword::Float,
+    "double" => Keyword::Double,
+    "int32" => Keyword::Int32,
+    "int64" => Keyword::Int64,
+    "uint32" => Keyword::Uint32,
+    "uint64" => Keyword::Uint64,
+    "sint32" => Keyword::Sint32,
+    "sint64" => Keyword::Sint64,
+    "fixed32" => Keyword::Fixed32,
+    "fixed64" => Keyword::Fixed64,
+    "sfixed32" => Keyword::SFixed32,
+    "sfixed64" => Keyword::SFixed64,
+    "group" => Keyword::Group,
+    "oneof" => Keyword::Oneof,
+    "map" => Keyword::Map,
+    "extensions" => Keyword::Extensions,
+    "to" => Keyword::To,
+    "max" => Keyword::Max,
+    "reserved" => Keyword::Reserved,
+    "enum" => Keyword::Enum,
+    "message" => Keyword::Message,
+    "extend" => Keyword::Extend,
+    "service" => Keyword::Service,
+    "rpc" => Keyword::Rpc,
+    "stream" => Keyword::Stream,
+    "returns" => Keyword::Returns,
 };
 
 static OPERATORS: phf::Map<char, TokenKind> = phf_map! {
@@ -64,6 +64,49 @@ static OPERATORS: phf::Map<char, TokenKind> = phf_map! {
     '<' => TokenKind::LAngle,
     '>' => TokenKind::RAngle,
 };
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Keyword {
+    Syntax,
+    Import,
+    Weak,
+    Public,
+    Package,
+    Option,
+    Inf,
+    Repeated,
+    Optional,
+    Required,
+    Bool,
+    String,
+    Bytes,
+    Float,
+    Double,
+    Int32,
+    Int64,
+    Uint32,
+    Uint64,
+    Sint32,
+    Sint64,
+    Fixed32,
+    Fixed64,
+    SFixed32,
+    SFixed64,
+    Group,
+    Oneof,
+    Map,
+    Extensions,
+    To,
+    Max,
+    Reserved,
+    Enum,
+    Message,
+    Extend,
+    Service,
+    Rpc,
+    Stream,
+    Returns,
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenKind {
@@ -87,45 +130,7 @@ pub enum TokenKind {
     LAngle,
     RAngle,
     Identifier,
-    SyntaxKw,
-    ImportKw,
-    WeakKw,
-    PublicKw,
-    PackageKw,
-    OptionKw,
-    InfKw,
-    RepeatedKw,
-    OptionalKw,
-    RequiredKw,
-    BoolKw,
-    StringKw,
-    BytesKw,
-    FloatKw,
-    DoubleKw,
-    Int32Kw,
-    Int64Kw,
-    Uint32Kw,
-    Uint64Kw,
-    Sint32Kw,
-    Sint64Kw,
-    Fixed32Kw,
-    Fixed64Kw,
-    SFixed32Kw,
-    SFixed64Kw,
-    GroupKw,
-    OneofKw,
-    MapKw,
-    ExtensionsKw,
-    ToKw,
-    MaxKw,
-    ReservedKw,
-    EnumKw,
-    MessageKw,
-    ExtendKw,
-    ServiceKw,
-    RpcKw,
-    StreamKw,
-    ReturnsKw,
+    Keyword(Keyword),
     LineComment,
     BlockComment,
     NewLine,
@@ -133,43 +138,43 @@ pub enum TokenKind {
     Eof,
 }
 
-impl TokenKind {
-    pub fn is_scalar_kw(&self) -> bool {
+impl Keyword {
+    pub fn is_scalar(&self) -> bool {
         matches!(
             self,
-            TokenKind::StringKw
-                | TokenKind::BoolKw
-                | TokenKind::BytesKw
-                | TokenKind::FloatKw
-                | TokenKind::DoubleKw
-                | TokenKind::Int32Kw
-                | TokenKind::Int64Kw
-                | TokenKind::Uint32Kw
-                | TokenKind::Uint64Kw
-                | TokenKind::Sint32Kw
-                | TokenKind::Sint64Kw
-                | TokenKind::Fixed32Kw
-                | TokenKind::Fixed64Kw
-                | TokenKind::SFixed32Kw
-                | TokenKind::SFixed64Kw
+            Keyword::String
+                | Keyword::Bool
+                | Keyword::Bytes
+                | Keyword::Float
+                | Keyword::Double
+                | Keyword::Int32
+                | Keyword::Int64
+                | Keyword::Uint32
+                | Keyword::Uint64
+                | Keyword::Sint32
+                | Keyword::Sint64
+                | Keyword::Fixed32
+                | Keyword::Fixed64
+                | Keyword::SFixed32
+                | Keyword::SFixed64
         )
     }
 
     pub fn is_map_key_type(&self) -> bool {
         matches!(
             self,
-            TokenKind::Int32Kw
-                | TokenKind::Int64Kw
-                | TokenKind::Uint32Kw
-                | TokenKind::Uint64Kw
-                | TokenKind::Sint32Kw
-                | TokenKind::Sint64Kw
-                | TokenKind::Fixed32Kw
-                | TokenKind::Fixed64Kw
-                | TokenKind::SFixed32Kw
-                | TokenKind::SFixed64Kw
-                | TokenKind::BoolKw
-                | TokenKind::StringKw
+            Keyword::Int32
+                | Keyword::Int64
+                | Keyword::Uint32
+                | Keyword::Uint64
+                | Keyword::Sint32
+                | Keyword::Sint64
+                | Keyword::Fixed32
+                | Keyword::Fixed64
+                | Keyword::SFixed32
+                | Keyword::SFixed64
+                | Keyword::Bool
+                | Keyword::String
         )
     }
 }
@@ -398,10 +403,10 @@ impl Cursor<'_> {
             }
         }
 
-        if let Some(kind) = KEYWORD.get(&value) {
+        if let Some(keyword) = KEYWORD.get(&value) {
             Token {
                 value,
-                kind: *kind,
+                kind: TokenKind::Keyword(*keyword),
                 position: pos,
             }
         } else {
@@ -424,7 +429,7 @@ impl Cursor<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::{tokenize, Token, TokenKind};
+    use super::{tokenize, Keyword, Token, TokenKind};
 
     #[test]
     fn double_quoted_string() {
@@ -523,51 +528,51 @@ mod tests {
     #[test]
     pub fn keywords() {
         let input = vec![
-            ("syntax", TokenKind::SyntaxKw),
-            ("import", TokenKind::ImportKw),
-            ("package", TokenKind::PackageKw),
-            ("option", TokenKind::OptionKw),
-            ("message", TokenKind::MessageKw),
-            ("enum", TokenKind::EnumKw),
-            ("service", TokenKind::ServiceKw),
-            ("rpc", TokenKind::RpcKw),
-            ("returns", TokenKind::ReturnsKw),
-            ("extend", TokenKind::ExtendKw),
-            ("extensions", TokenKind::ExtensionsKw),
-            ("reserved", TokenKind::ReservedKw),
-            ("to", TokenKind::ToKw),
-            ("max", TokenKind::MaxKw),
-            ("weak", TokenKind::WeakKw),
-            ("repeated", TokenKind::RepeatedKw),
-            ("map", TokenKind::MapKw),
-            ("oneof", TokenKind::OneofKw),
-            ("group", TokenKind::GroupKw),
-            ("required", TokenKind::RequiredKw),
-            ("optional", TokenKind::OptionalKw),
-            ("double", TokenKind::DoubleKw),
-            ("float", TokenKind::FloatKw),
-            ("int32", TokenKind::Int32Kw),
-            ("int64", TokenKind::Int64Kw),
-            ("uint32", TokenKind::Uint32Kw),
-            ("uint64", TokenKind::Uint64Kw),
-            ("sint32", TokenKind::Sint32Kw),
-            ("sint64", TokenKind::Sint64Kw),
-            ("fixed32", TokenKind::Fixed32Kw),
-            ("fixed64", TokenKind::Fixed64Kw),
-            ("sfixed32", TokenKind::SFixed32Kw),
-            ("sfixed64", TokenKind::SFixed64Kw),
-            ("bool", TokenKind::BoolKw),
-            ("string", TokenKind::StringKw),
-            ("bytes", TokenKind::BytesKw),
-            ("stream", TokenKind::StreamKw),
-            ("inf", TokenKind::InfKw),
-            ("public", TokenKind::PublicKw),
+            ("syntax", Keyword::Syntax),
+            ("import", Keyword::Import),
+            ("package", Keyword::Package),
+            ("option", Keyword::Option),
+            ("message", Keyword::Message),
+            ("enum", Keyword::Enum),
+            ("service", Keyword::Service),
+            ("rpc", Keyword::Rpc),
+            ("returns", Keyword::Returns),
+            ("extend", Keyword::Extend),
+            ("extensions", Keyword::Extensions),
+            ("reserved", Keyword::Reserved),
+            ("to", Keyword::To),
+            ("max", Keyword::Max),
+            ("weak", Keyword::Weak),
+            ("repeated", Keyword::Repeated),
+            ("map", Keyword::Map),
+            ("oneof", Keyword::Oneof),
+            ("group", Keyword::Group),
+            ("required", Keyword::Required),
+            ("optional", Keyword::Optional),
+            ("double", Keyword::Double),
+            ("float", Keyword::Float),
+            ("int32", Keyword::Int32),
+            ("int64", Keyword::Int64),
+            ("uint32", Keyword::Uint32),
+            ("uint64", Keyword::Uint64),
+            ("sint32", Keyword::Sint32),
+            ("sint64", Keyword::Sint64),
+            ("fixed32", Keyword::Fixed32),
+            ("fixed64", Keyword::Fixed64),
+            ("sfixed32", Keyword::SFixed32),
+            ("sfixed64", Keyword::SFixed64),
+            ("bool", Keyword::Bool),
+            ("string", Keyword::String),
+            ("bytes", Keyword::Bytes),
+            ("stream", Keyword::Stream),
+            ("inf", Keyword::Inf),
+            ("public", Keyword::Public),
         ];
 
         for (input, expected_kind) in input {
             let expected_tokens = vec![Token {
                 value: input.to_string(),
-                kind: expected_kind,
+                kind: TokenKind::Keyword(expected_kind),
                 position: 0,
             }];
 
@@ -645,7 +650,7 @@ mod tests {
                 &[
                     Token {
                         value: "syntax".to_string(),
-                        kind: TokenKind::SyntaxKw,
+                        kind: TokenKind::Keyword(Keyword::Syntax),
                         position: 0,
                     },
                     Token {
@@ -670,7 +675,7 @@ mod tests {
                 &[
                     Token {
                         value: "message".to_string(),
-                        kind: TokenKind::MessageKw,
+                        kind: TokenKind::Keyword(Keyword::Message),
                         position: 0,
                     },
                     Token {
@@ -690,7 +695,7 @@ mod tests {
                 &[
                     Token {
                         value: "message".to_string(),
-                        kind: TokenKind::MessageKw,
+                        kind: TokenKind::Keyword(Keyword::Message),
                         position: 0,
                     },
                     Token {
@@ -705,12 +710,12 @@ mod tests {
                     },
                     Token {
                         value: "optional".to_string(),
-                        kind: TokenKind::OptionalKw,
+                        kind: TokenKind::Keyword(Keyword::Optional),
                         position: 14,
                     },
                     Token {
                         value: "int32".to_string(),
-                        kind: TokenKind::Int32Kw,
+                        kind: TokenKind::Keyword(Keyword::Int32),
                         position: 23,
                     },
                     Token {
@@ -745,7 +750,7 @@ mod tests {
                 &[
                     Token {
                         value: "message".to_string(),
-                        kind: TokenKind::MessageKw,
+                        kind: TokenKind::Keyword(Keyword::Message),
                         position: 0,
                     },
                     Token {
@@ -760,12 +765,12 @@ mod tests {
                     },
                     Token {
                         value: "optional".to_string(),
-                        kind: TokenKind::OptionalKw,
+                        kind: TokenKind::Keyword(Keyword::Optional),
                         position: 14,
                     },
                     Token {
                         value: "int32".to_string(),
-                        kind: TokenKind::Int32Kw,
+                        kind: TokenKind::Keyword(Keyword::Int32),
                         position: 23,
                     },
                     Token {
@@ -790,12 +795,12 @@ mod tests {
                     },
                     Token {
                         value: "optional".to_string(),
-                        kind: TokenKind::OptionalKw,
+                        kind: TokenKind::Keyword(Keyword::Optional),
                         position: 38,
                     },
                     Token {
                         value: "int32".to_string(),
-                        kind: TokenKind::Int32Kw,
+                        kind: TokenKind::Keyword(Keyword::Int32),
                         position: 47,
                     },
                     Token {

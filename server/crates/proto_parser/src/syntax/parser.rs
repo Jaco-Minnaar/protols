@@ -17,7 +17,7 @@ use super::{
         EnumElement, ExtensionElement, ImportModifier, ImportNode, MapKeyType, Node, PackageNode,
         Reserved, Root, RootNode, ScalarType, SyntaxNode, SyntaxType, TagEnd, TagRange,
     },
-    lexer::{Token, TokenKind},
+    lexer::{Keyword, Token, TokenKind},
 };
 
 #[derive(Debug)]
@@ -132,14 +132,28 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn root_node(&mut self) -> Result<RootNode> {
         let result = match self.peek_kind() {
-            Some(TokenKind::SyntaxKw) => RootNode::SyntaxDeclaration(self.syntax_node()?),
-            Some(TokenKind::PackageKw) => RootNode::PackageDeclaration(self.package_node()?),
-            Some(TokenKind::ImportKw) => RootNode::ImportDeclaration(self.import_node()?),
-            Some(TokenKind::OptionKw) => RootNode::OptionDeclaration(self.option_node()?),
-            Some(TokenKind::MessageKw) => RootNode::MessageDeclaration(self.message_node()?),
-            Some(TokenKind::EnumKw) => RootNode::EnumDeclaration(self.enum_node()?),
-            Some(TokenKind::ServiceKw) => RootNode::ServiceDeclaration(self.service_node()?),
-            Some(TokenKind::ExtendKw) => RootNode::ExtensionDeclaration(self.extend_node()?),
+            Some(TokenKind::Keyword(Keyword::Syntax)) => {
+                RootNode::SyntaxDeclaration(self.syntax_node()?)
+            }
+            Some(TokenKind::Keyword(Keyword::Package)) => {
+                RootNode::PackageDeclaration(self.package_node()?)
+            }
+            Some(TokenKind::Keyword(Keyword::Import)) => {
+                RootNode::ImportDeclaration(self.import_node()?)
+            }
+            Some(TokenKind::Keyword(Keyword::Option)) => {
+                RootNode::OptionDeclaration(self.option_node()?)
+            }
+            Some(TokenKind::Keyword(Keyword::Message)) => {
+                RootNode::MessageDeclaration(self.message_node()?)
+            }
+            Some(TokenKind::Keyword(Keyword::Enum)) => RootNode::EnumDeclaration(self.enum_node()?),
+            Some(TokenKind::Keyword(Keyword::Service)) => {
+                RootNode::ServiceDeclaration(self.service_node()?)
+            }
+            Some(TokenKind::Keyword(Keyword::Extend)) => {
+                RootNode::ExtensionDeclaration(self.extend_node()?)
+            }
             Some(_) => {
                 let token = self.advance().unwrap();
                 let err = ParseError::new(
@@ -216,11 +230,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         let start = self.advance().unwrap().position;
 
         let modifier = match self.peek_kind() {
-            Some(TokenKind::PublicKw) => {
+            Some(TokenKind::Keyword(Keyword::Public)) => {
                 self.advance().unwrap();
                 Some(ImportModifier::Public)
             }
-            Some(TokenKind::WeakKw) => {
+            Some(TokenKind::Keyword(Keyword::Weak)) => {
                 self.advance().unwrap();
                 Some(ImportModifier::Weak)
             }
@@ -244,13 +258,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn option_node(&mut self) -> Result<Node<OptionNode>> {
-        let (start, option_name) = if let Some(TokenKind::OptionKw) = self.peek_kind() {
-            let start = self.advance().unwrap().position;
-            (start, self.option_name()?)
-        } else {
-            let option_name = self.option_name()?;
-            (option_name.start, option_name)
-        };
+        let (start, option_name) =
+            if let Some(TokenKind::Keyword(Keyword::Option)) = self.peek_kind() {
+                let start = self.advance().unwrap().position;
+                (start, self.option_name()?)
+            } else {
+                let option_name = self.option_name()?;
+                (option_name.start, option_name)
+            };
 
         self.expect(TokenKind::Equals)?;
 
@@ -551,9 +566,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn message_element(&mut self) -> Result<Node<MessageElement>> {
         let element = match self.peek_kind() {
             Some(
-                TokenKind::RequiredKw
-                | TokenKind::OptionalKw
-                | TokenKind::RepeatedKw
+                TokenKind::Keyword(Keyword::Required)
+                | TokenKind::Keyword(Keyword::Optional)
+                | TokenKind::Keyword(Keyword::Repeated)
                 | TokenKind::Dot
                 | TokenKind::Identifier,
             ) => {
@@ -564,7 +579,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     decl.end,
                 )
             }
-            Some(t) if t.is_scalar_kw() => {
+            Some(TokenKind::Keyword(t)) if t.is_scalar() => {
                 let decl = self.field_decl()?;
                 Node::new(
                     MessageElement::FieldDeclaration(decl.value),
@@ -572,7 +587,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     decl.end,
                 )
             }
-            Some(TokenKind::EnumKw) => {
+            Some(TokenKind::Keyword(Keyword::Enum)) => {
                 let decl = self.enum_node()?;
                 Node::new(
                     MessageElement::EnumDeclaration(decl.value),
@@ -580,7 +595,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     decl.end,
                 )
             }
-            Some(TokenKind::MessageKw) => {
+            Some(TokenKind::Keyword(Keyword::Message)) => {
                 let decl = self.message_node()?;
                 Node::new(
                     MessageElement::MessageDeclaration(Box::new(decl.value)),
@@ -588,7 +603,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     decl.end,
                 )
             }
-            Some(TokenKind::OneofKw) => {
+            Some(TokenKind::Keyword(Keyword::Oneof)) => {
                 let decl = self.oneof_node()?;
                 Node::new(
                     MessageElement::OneOfDeclaration(decl.value),
@@ -596,7 +611,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     decl.end,
                 )
             }
-            Some(TokenKind::MapKw) => {
+            Some(TokenKind::Keyword(Keyword::Map)) => {
                 let decl = self.map_field_decl()?;
                 Node::new(
                     MessageElement::MapFieldDeclaration(decl.value),
@@ -604,7 +619,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     decl.end,
                 )
             }
-            Some(TokenKind::ExtensionsKw) => {
+            Some(TokenKind::Keyword(Keyword::Extensions)) => {
                 let decl = self.extend_node()?;
                 Node::new(
                     MessageElement::ExtensionDeclaration(decl.value),
@@ -612,7 +627,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     decl.end,
                 )
             }
-            Some(TokenKind::ReservedKw) => {
+            Some(TokenKind::Keyword(Keyword::Reserved)) => {
                 let decl = self.reserved_node()?;
                 Node::new(
                     MessageElement::ReservedDeclaration(decl.value),
@@ -620,7 +635,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     decl.end,
                 )
             }
-            Some(TokenKind::OptionKw) => {
+            Some(TokenKind::Keyword(Keyword::Option)) => {
                 let decl = self.option_node()?;
                 Node::new(
                     MessageElement::OptionDeclaration(decl.value),
@@ -678,22 +693,24 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn field_cardinality(&mut self) -> Result<Node<FieldCardinality>> {
         let cardinality = match self.peek_kind() {
-            Some(TokenKind::RequiredKw) => {
+            Some(TokenKind::Keyword(Keyword::Required)) => {
                 let token = self.advance().unwrap();
                 let end = token.position + token.value.len();
                 Node::new(FieldCardinality::Required, token.position, end)
             }
-            Some(TokenKind::OptionalKw) => {
+            Some(TokenKind::Keyword(Keyword::Optional)) => {
                 let token = self.advance().unwrap();
                 let end = token.position + token.value.len();
                 Node::new(FieldCardinality::Optional, token.position, end)
             }
-            Some(TokenKind::RepeatedKw) => {
+            Some(TokenKind::Keyword(Keyword::Repeated)) => {
                 let token = self.advance().unwrap();
                 let end = token.position + token.value.len();
                 Node::new(FieldCardinality::Repeated, token.position, end)
             }
-            Some(t) if t.is_scalar_kw() => Node::new(FieldCardinality::Optional, 0, 0),
+            Some(TokenKind::Keyword(t)) if t.is_scalar() => {
+                Node::new(FieldCardinality::Optional, 0, 0)
+            }
             Some(TokenKind::Dot) => Node::new(FieldCardinality::Optional, 0, 0),
             Some(TokenKind::Identifier) => Node::new(FieldCardinality::Optional, 0, 0),
             _ => {
@@ -713,7 +730,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 let name = self.type_name()?;
                 Node::new(FieldType::TypeName(name.value), name.start, name.end)
             }
-            Some(t) if t.is_scalar_kw() => {
+            Some(TokenKind::Keyword(t)) if t.is_scalar() => {
                 let token = self.advance().unwrap();
                 let scalar_type = ScalarType::try_from(token.kind).unwrap();
 
@@ -768,7 +785,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn enum_element(&mut self) -> Result<Node<EnumElement>> {
         match self.peek_kind() {
-            Some(TokenKind::OptionKw) => {
+            Some(TokenKind::Keyword(Keyword::Option)) => {
                 let option = self.option_node()?;
                 Ok(Node::new(
                     EnumElement::EnumOption(option.value),
@@ -804,7 +821,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
                 Ok(Node::new(element, value_name.position, end.position))
             }
-            Some(TokenKind::ReservedKw) => {
+            Some(TokenKind::Keyword(Keyword::Reserved)) => {
                 let reserved = self.reserved_node()?;
                 Ok(Node::new(
                     EnumElement::EnumReserved(reserved.value),
@@ -837,7 +854,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn service_element(&mut self) -> Result<Node<ServiceElement>> {
         match self.peek_kind() {
-            Some(TokenKind::OptionKw) => {
+            Some(TokenKind::Keyword(Keyword::Option)) => {
                 let option = self.option_node()?;
                 Ok(Node::new(
                     ServiceElement::Option(option.value),
@@ -853,12 +870,12 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     token.position,
                 ))
             }
-            Some(TokenKind::RpcKw) => {
+            Some(TokenKind::Keyword(Keyword::Rpc)) => {
                 let start = self.advance().unwrap().position;
                 let rpc_name = self.expect(TokenKind::Identifier)?;
 
                 let input_type = self.rpc_message_type()?;
-                _ = self.expect(TokenKind::ReturnsKw)?;
+                _ = self.expect(TokenKind::Keyword(Keyword::Returns))?;
                 let output_type = self.rpc_message_type()?;
 
                 let mut method_element = MethodNode {
@@ -872,7 +889,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     self.advance().unwrap();
                     loop {
                         let element = match self.peek_kind() {
-                            Some(TokenKind::OptionKw) => {
+                            Some(TokenKind::Keyword(Keyword::Option)) => {
                                 let option = self.option_node()?;
                                 Node::new(
                                     MethodElement::Option(option.value),
@@ -923,7 +940,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn rpc_message_type(&mut self) -> Result<Node<MessageType>> {
         let start = self.expect(TokenKind::LParen)?.position;
-        let stream = if let Some(TokenKind::StreamKw) = self.peek_kind() {
+        let stream = if let Some(TokenKind::Keyword(Keyword::Stream)) = self.peek_kind() {
             self.advance().unwrap();
             true
         } else {
@@ -974,7 +991,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn reserved_node(&mut self) -> Result<Node<Reserved>> {
-        let start = self.expect(TokenKind::ReservedKw)?.position;
+        let start = self.expect(TokenKind::Keyword(Keyword::Reserved))?.position;
 
         match self.peek_kind() {
             Some(TokenKind::IntLiteral) => {
@@ -997,7 +1014,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn map_field_decl(&mut self) -> Result<Node<MapFieldDeclaration>> {
-        let start = self.expect(TokenKind::MapKw)?.position;
+        let start = self.expect(TokenKind::Keyword(Keyword::Map))?.position;
         _ = self.expect(TokenKind::LAngle)?;
         let key_type = self.map_key_type()?;
         _ = self.expect(TokenKind::Comma)?;
@@ -1029,7 +1046,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn map_key_type(&mut self) -> Result<Node<MapKeyType>> {
         match self.peek_kind() {
-            Some(tk) if tk.is_map_key_type() => {
+            Some(TokenKind::Keyword(kw)) if kw.is_map_key_type() => {
                 let token = self.advance().unwrap();
                 let end = token.position + token.value.len();
                 Ok(Node::new(
@@ -1051,7 +1068,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn oneof_node(&mut self) -> Result<Node<OneofDeclaration>> {
-        let start = self.expect(TokenKind::OneofKw)?.position;
+        let start = self.expect(TokenKind::Keyword(Keyword::Oneof))?.position;
         let name = self.expect(TokenKind::Identifier)?;
         let name_start = name.position;
         let name_end = name.position + name.value.len();
@@ -1075,7 +1092,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn oneof_element(&mut self) -> Result<Node<OneofElement>> {
         match self.peek_kind() {
-            Some(TokenKind::OptionKw) => {
+            Some(TokenKind::Keyword(Keyword::Option)) => {
                 let option = self.option_node()?;
                 Ok(Node::new(
                     OneofElement::Option(option.value),
@@ -1091,7 +1108,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     field.end,
                 ))
             }
-            Some(kind) if kind.is_scalar_kw() => {
+            Some(TokenKind::Keyword(kw)) if kw.is_scalar() => {
                 let field = self.oneof_field_decl()?;
                 Ok(Node::new(
                     OneofElement::OneofField(field.value),
@@ -1120,7 +1137,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     type_name.end,
                 )
             }
-            Some(kind) if kind.is_scalar_kw() => {
+            Some(TokenKind::Keyword(kw)) if kw.is_scalar() => {
                 let start = self.advance().unwrap();
                 let scalar_type = Node::new(
                     ScalarType::try_from(start.kind).unwrap(),
@@ -1192,7 +1209,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
         loop {
             let start = self.expect(TokenKind::IntLiteral)?;
-            let end = if let Some(TokenKind::ToKw) = self.peek_kind() {
+            let end = if let Some(TokenKind::Keyword(Keyword::To)) = self.peek_kind() {
                 self.advance().unwrap();
 
                 let end = match self.advance() {

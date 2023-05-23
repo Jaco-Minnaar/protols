@@ -1,4 +1,4 @@
-use crate::syntax::lexer::TokenKind;
+use crate::syntax::lexer::{Keyword, TokenKind};
 
 use super::{
     option::OptionNode, EnumNode, ExtensionNode, MapKeyType, Node, Reserved, ScalarType, TypeName,
@@ -59,9 +59,9 @@ impl TryFrom<TokenKind> for FieldCardinality {
 
     fn try_from(value: TokenKind) -> Result<Self, Self::Error> {
         match value {
-            TokenKind::RequiredKw => Ok(FieldCardinality::Required),
-            TokenKind::OptionalKw => Ok(FieldCardinality::Optional),
-            TokenKind::RepeatedKw => Ok(FieldCardinality::Repeated),
+            TokenKind::Keyword(Keyword::Required) => Ok(FieldCardinality::Required),
+            TokenKind::Keyword(Keyword::Optional) => Ok(FieldCardinality::Optional),
+            TokenKind::Keyword(Keyword::Repeated) => Ok(FieldCardinality::Repeated),
             _ => Err(format!("Invalid field cardinality: {:?}", value)),
         }
     }

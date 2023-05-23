@@ -4,7 +4,7 @@ use self::{
     service::ServiceNode,
 };
 
-use super::lexer::TokenKind;
+use super::lexer::{Keyword, TokenKind};
 
 pub mod message;
 pub mod option;
@@ -131,18 +131,18 @@ impl TryFrom<TokenKind> for MapKeyType {
 
     fn try_from(value: TokenKind) -> Result<Self, Self::Error> {
         match value {
-            TokenKind::Int32Kw => Ok(MapKeyType::Int32),
-            TokenKind::Int64Kw => Ok(MapKeyType::Int64),
-            TokenKind::Uint32Kw => Ok(MapKeyType::Uint32),
-            TokenKind::Uint64Kw => Ok(MapKeyType::Uint64),
-            TokenKind::Sint32Kw => Ok(MapKeyType::Sint32),
-            TokenKind::Sint64Kw => Ok(MapKeyType::Sint64),
-            TokenKind::Fixed32Kw => Ok(MapKeyType::Fixed32),
-            TokenKind::Fixed64Kw => Ok(MapKeyType::Fixed64),
-            TokenKind::SFixed32Kw => Ok(MapKeyType::Sfixed32),
-            TokenKind::SFixed64Kw => Ok(MapKeyType::Sfixed64),
-            TokenKind::BoolKw => Ok(MapKeyType::Bool),
-            TokenKind::StringKw => Ok(MapKeyType::String),
+            TokenKind::Keyword(Keyword::Int32) => Ok(MapKeyType::Int32),
+            TokenKind::Keyword(Keyword::Int64) => Ok(MapKeyType::Int64),
+            TokenKind::Keyword(Keyword::Uint32) => Ok(MapKeyType::Uint32),
+            TokenKind::Keyword(Keyword::Uint64) => Ok(MapKeyType::Uint64),
+            TokenKind::Keyword(Keyword::Sint32) => Ok(MapKeyType::Sint32),
+            TokenKind::Keyword(Keyword::Sint64) => Ok(MapKeyType::Sint64),
+            TokenKind::Keyword(Keyword::Fixed32) => Ok(MapKeyType::Fixed32),
+            TokenKind::Keyword(Keyword::Fixed64) => Ok(MapKeyType::Fixed64),
+            TokenKind::Keyword(Keyword::SFixed32) => Ok(MapKeyType::Sfixed32),
+            TokenKind::Keyword(Keyword::SFixed64) => Ok(MapKeyType::Sfixed64),
+            TokenKind::Keyword(Keyword::Bool) => Ok(MapKeyType::Bool),
+            TokenKind::Keyword(Keyword::String) => Ok(MapKeyType::String),
             _ => Err(format!("Invalid map key type: {:?}", value)),
         }
     }
@@ -172,21 +172,21 @@ impl TryFrom<TokenKind> for ScalarType {
 
     fn try_from(value: TokenKind) -> Result<Self, Self::Error> {
         let val = match value {
-            TokenKind::DoubleKw => ScalarType::Double,
-            TokenKind::FloatKw => ScalarType::Float,
-            TokenKind::Int32Kw => ScalarType::Int32,
-            TokenKind::Int64Kw => ScalarType::Int64,
-            TokenKind::Uint32Kw => ScalarType::Uint32,
-            TokenKind::Uint64Kw => ScalarType::Uint64,
-            TokenKind::Sint32Kw => ScalarType::Sint32,
-            TokenKind::Sint64Kw => ScalarType::Sint64,
-            TokenKind::Fixed32Kw => ScalarType::Fixed32,
-            TokenKind::Fixed64Kw => ScalarType::Fixed64,
-            TokenKind::SFixed32Kw => ScalarType::Sfixed32,
-            TokenKind::SFixed64Kw => ScalarType::Sfixed64,
-            TokenKind::BoolKw => ScalarType::Bool,
-            TokenKind::StringKw => ScalarType::String,
-            TokenKind::BytesKw => ScalarType::Bytes,
+            TokenKind::Keyword(Keyword::Double) => ScalarType::Double,
+            TokenKind::Keyword(Keyword::Float) => ScalarType::Float,
+            TokenKind::Keyword(Keyword::Int32) => ScalarType::Int32,
+            TokenKind::Keyword(Keyword::Int64) => ScalarType::Int64,
+            TokenKind::Keyword(Keyword::Uint32) => ScalarType::Uint32,
+            TokenKind::Keyword(Keyword::Uint64) => ScalarType::Uint64,
+            TokenKind::Keyword(Keyword::Sint32) => ScalarType::Sint32,
+            TokenKind::Keyword(Keyword::Sint64) => ScalarType::Sint64,
+            TokenKind::Keyword(Keyword::Fixed32) => ScalarType::Fixed32,
+            TokenKind::Keyword(Keyword::Fixed64) => ScalarType::Fixed64,
+            TokenKind::Keyword(Keyword::SFixed32) => ScalarType::Sfixed32,
+            TokenKind::Keyword(Keyword::SFixed64) => ScalarType::Sfixed64,
+            TokenKind::Keyword(Keyword::Bool) => ScalarType::Bool,
+            TokenKind::Keyword(Keyword::String) => ScalarType::String,
+            TokenKind::Keyword(Keyword::Bytes) => ScalarType::Bytes,
             _ => return Err(format!("Invalid scalar type: {:?}", value)),
         };
 
@@ -198,21 +198,21 @@ impl TryFrom<&TokenKind> for ScalarType {
 
     fn try_from(value: &TokenKind) -> Result<Self, Self::Error> {
         let val = match value {
-            TokenKind::DoubleKw => ScalarType::Double,
-            TokenKind::FloatKw => ScalarType::Float,
-            TokenKind::Int32Kw => ScalarType::Int32,
-            TokenKind::Int64Kw => ScalarType::Int64,
-            TokenKind::Uint32Kw => ScalarType::Uint32,
-            TokenKind::Uint64Kw => ScalarType::Uint64,
-            TokenKind::Sint32Kw => ScalarType::Sint32,
-            TokenKind::Sint64Kw => ScalarType::Sint64,
-            TokenKind::Fixed32Kw => ScalarType::Fixed32,
-            TokenKind::Fixed64Kw => ScalarType::Fixed64,
-            TokenKind::SFixed32Kw => ScalarType::Sfixed32,
-            TokenKind::SFixed64Kw => ScalarType::Sfixed64,
-            TokenKind::BoolKw => ScalarType::Bool,
-            TokenKind::StringKw => ScalarType::String,
-            TokenKind::BytesKw => ScalarType::Bytes,
+            TokenKind::Keyword(Keyword::Double) => ScalarType::Double,
+            TokenKind::Keyword(Keyword::Float) => ScalarType::Float,
+            TokenKind::Keyword(Keyword::Int32) => ScalarType::Int32,
+            TokenKind::Keyword(Keyword::Int64) => ScalarType::Int64,
+            TokenKind::Keyword(Keyword::Uint32) => ScalarType::Uint32,
+            TokenKind::Keyword(Keyword::Uint64) => ScalarType::Uint64,
+            TokenKind::Keyword(Keyword::Sint32) => ScalarType::Sint32,
+            TokenKind::Keyword(Keyword::Sint64) => ScalarType::Sint64,
+            TokenKind::Keyword(Keyword::Fixed32) => ScalarType::Fixed32,
+            TokenKind::Keyword(Keyword::Fixed64) => ScalarType::Fixed64,
+            TokenKind::Keyword(Keyword::SFixed32) => ScalarType::Sfixed32,
+            TokenKind::Keyword(Keyword::SFixed64) => ScalarType::Sfixed64,
+            TokenKind::Keyword(Keyword::Bool) => ScalarType::Bool,
+            TokenKind::Keyword(Keyword::String) => ScalarType::String,
+            TokenKind::Keyword(Keyword::Bytes) => ScalarType::Bytes,
             _ => return Err(format!("Invalid scalar type: {:?}", value)),
         };
 
