@@ -1,9 +1,12 @@
 use std::{iter::Peekable, str::FromStr};
 
-use crate::syntax::ast::{
-    message::{MessageNode, OneofField},
-    option::OptionNamePart,
-    EnumNode, ExtensionNode, TypeName,
+use crate::{
+    syntax::ast::{
+        message::{MessageNode, OneofField},
+        option::OptionNamePart,
+        EnumNode, ExtensionNode, TypeName,
+    },
+    Position,
 };
 
 use super::{
@@ -29,11 +32,11 @@ pub struct ParseResult {
 #[derive(Debug)]
 pub struct ParseError {
     pub message: String,
-    pub position: usize,
+    pub position: Position,
 }
 
 impl ParseError {
-    pub fn new(message: String, position: usize) -> Self {
+    pub fn new(message: String, position: Position) -> Self {
         Self { message, position }
     }
 }
@@ -388,11 +391,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
         let mut string = String::from_str(token.value.as_str()).unwrap();
         let start = token.position;
-        let mut end = token.position + token.value.len();
+        let mut end = &token.position + token.value.len();
         while let Some(TokenKind::String) = self.peek_kind() {
             token = self.advance().unwrap();
             string.push_str(token.value.as_str());
-            end = token.position + token.value.len();
+            end = &token.position + token.value.len();
         }
 
         let string = format!("\"{}\"", string.replace("\"", ""));
@@ -427,7 +430,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             match self.peek_kind() {
                 Some(TokenKind::Identifier) => {
                     let identifier = self.advance().unwrap();
-                    let end = identifier.position + identifier.value.len();
+                    let end = &identifier.position + identifier.value.len();
                     let part = Node::new(
                         OptionNamePart::SimpleName(identifier.value),
                         identifier.position,
@@ -446,7 +449,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
                     name.push(part);
                 }
-                c => {
+                _ => {
                     break;
                 }
             }
@@ -469,7 +472,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         match self.peek_kind() {
             Some(TokenKind::String) => {
                 let token = self.advance().unwrap();
-                let end = token.position + token.value.len();
+                let end = &token.position + token.value.len();
                 let value = Node::new(OptionValue::StringLiteral(token.value), token.position, end);
                 Ok(value)
             }
@@ -478,7 +481,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 match self.peek_kind() {
                     Some(TokenKind::IntLiteral) => {
                         let token = self.advance().unwrap();
-                        let end = start + token.value.len();
+                        let end = &start + token.value.len();
                         let value = Node::new(
                             OptionValue::IntLiteral(format!("-{}", token.value)),
                             start,
@@ -488,7 +491,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     }
                     Some(TokenKind::FloatLiteral) => {
                         let token = self.advance().unwrap();
-                        let end = start + token.value.len();
+                        let end = &start + token.value.len();
                         let value = Node::new(
                             OptionValue::FloatLiteral(format!("-{}", token.value)),
                             start,
@@ -510,7 +513,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 match self.peek_kind() {
                     Some(TokenKind::IntLiteral) => {
                         let token = self.advance().unwrap();
-                        let end = start + token.value.len();
+                        let end = &start + token.value.len();
                         let value = Node::new(
                             OptionValue::UintLiteral(format!("+{}", token.value)),
                             start,
@@ -520,7 +523,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     }
                     Some(TokenKind::FloatLiteral) => {
                         let token = self.advance().unwrap();
-                        let end = start + token.value.len();
+                        let end = &start + token.value.len();
                         let value = Node::new(
                             OptionValue::FloatLiteral(format!("+{}", token.value)),
                             start,
@@ -538,19 +541,19 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             }
             Some(TokenKind::IntLiteral) => {
                 let token = self.advance().unwrap();
-                let end = token.position + token.value.len();
+                let end = &token.position + token.value.len();
                 let value = Node::new(OptionValue::UintLiteral(token.value), token.position, end);
                 Ok(value)
             }
             Some(TokenKind::FloatLiteral) => {
                 let token = self.advance().unwrap();
-                let end = token.position + token.value.len();
+                let end = &token.position + token.value.len();
                 let value = Node::new(OptionValue::FloatLiteral(token.value), token.position, end);
                 Ok(value)
             }
             Some(TokenKind::Identifier) => {
                 let token = self.advance().unwrap();
-                let end = token.position + token.value.len();
+                let end = &token.position + token.value.len();
                 let value = Node::new(OptionValue::Identifier(token.value), token.position, end);
                 Ok(value)
             }
@@ -654,7 +657,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
         let field_type = self.field_type()?;
 
-        if cardinality.start == 0 {
+        if cardinality.start.column == 0 {
             cardinality.start = field_type.start;
             cardinality.end = field_type.start;
         }
@@ -666,10 +669,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         self.expect(TokenKind::Equals)?;
 
         let field_number = self.expect(TokenKind::IntLiteral)?;
+        let end = &field_number.position + field_number.value.len();
         let field_number = Node::new(
             field_number.value.parse::<u32>().unwrap(),
             field_number.position,
-            field_number.position + field_number.value.len(),
+            end,
         );
 
         let options = if let Some(TokenKind::LBracket) = self.peek_kind() {
@@ -694,25 +698,35 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn field_cardinality(&mut self) -> Result<Node<FieldCardinality>> {
         let cardinality = match self.peek_kind() {
             Some(TokenKind::Keyword(Keyword::Required)) => {
-                let token = self.advance().unwrap();
-                let end = token.position + token.value.len();
-                Node::new(FieldCardinality::Required, token.position, end)
+                let token_parts = self.advance().unwrap().take_values();
+                let end = &token_parts.2 + token_parts.0.len();
+                Node::new(FieldCardinality::Required, token_parts.2, end)
             }
             Some(TokenKind::Keyword(Keyword::Optional)) => {
-                let token = self.advance().unwrap();
-                let end = token.position + token.value.len();
-                Node::new(FieldCardinality::Optional, token.position, end)
+                let token_parts = self.advance().unwrap().take_values();
+                let end = &token_parts.2 + token_parts.0.len();
+                Node::new(FieldCardinality::Optional, token_parts.2, end)
             }
             Some(TokenKind::Keyword(Keyword::Repeated)) => {
-                let token = self.advance().unwrap();
-                let end = token.position + token.value.len();
-                Node::new(FieldCardinality::Repeated, token.position, end)
+                let token_parts = self.advance().unwrap().take_values();
+                let end = &token_parts.2 + token_parts.0.len();
+                Node::new(FieldCardinality::Repeated, token_parts.2, end)
             }
-            Some(TokenKind::Keyword(t)) if t.is_scalar() => {
-                Node::new(FieldCardinality::Optional, 0, 0)
-            }
-            Some(TokenKind::Dot) => Node::new(FieldCardinality::Optional, 0, 0),
-            Some(TokenKind::Identifier) => Node::new(FieldCardinality::Optional, 0, 0),
+            Some(TokenKind::Keyword(t)) if t.is_scalar() => Node::new(
+                FieldCardinality::Optional,
+                Position { line: 0, column: 0 },
+                Position { line: 0, column: 0 },
+            ),
+            Some(TokenKind::Dot) => Node::new(
+                FieldCardinality::Optional,
+                Position { line: 0, column: 0 },
+                Position { line: 0, column: 0 },
+            ),
+            Some(TokenKind::Identifier) => Node::new(
+                FieldCardinality::Optional,
+                Position { line: 0, column: 0 },
+                Position { line: 0, column: 0 },
+            ),
             _ => {
                 return Err(ParseError::new(
                     format!("Expected field cardinality"),
@@ -731,14 +745,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 Node::new(FieldType::TypeName(name.value), name.start, name.end)
             }
             Some(TokenKind::Keyword(t)) if t.is_scalar() => {
-                let token = self.advance().unwrap();
-                let scalar_type = ScalarType::try_from(token.kind).unwrap();
+                let (value, kind, position) = self.advance().unwrap().take_values();
+                let scalar_type = ScalarType::try_from(kind).unwrap();
 
-                Node::new(
-                    FieldType::ScalarType(scalar_type),
-                    token.position,
-                    token.position + token.value.len(),
-                )
+                let end = &position + value.len();
+                Node::new(FieldType::ScalarType(scalar_type), position, end)
             }
             _ => {
                 return Err(ParseError::new(
@@ -752,21 +763,18 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn field_number(&mut self) -> Result<Node<u32>> {
-        let field_number = self.expect(TokenKind::IntLiteral)?;
-        let field_number = Node::new(
-            field_number.value.parse::<u32>().unwrap(),
-            field_number.position,
-            field_number.position + field_number.value.len(),
-        );
+        let (value, _, position) = self.expect(TokenKind::IntLiteral)?.take_values();
+        let end = &position + value.len();
+        let field_number = Node::new(value.parse::<u32>().unwrap(), position, end);
 
         Ok(field_number)
     }
 
     fn field_name(&mut self) -> Result<Node<String>> {
-        let token = self.expect(TokenKind::Identifier)?;
-        let start = token.position;
-        let end = token.position + token.value.len();
-        Ok(Node::new(token.value, start, end))
+        let (value, _, position) = self.expect(TokenKind::Identifier)?.take_values();
+        let end = &position + value.len();
+        let start = position;
+        Ok(Node::new(value, start, end))
     }
 
     fn enum_elements(&mut self) -> Result<Vec<Node<EnumElement>>> {
@@ -975,7 +983,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         let parts = self.qualified_identifier()?;
 
         let start = if absolute {
-            parts.start - 1
+            &parts.start - 1
         } else {
             parts.start
         };
@@ -1048,7 +1056,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         match self.peek_kind() {
             Some(TokenKind::Keyword(kw)) if kw.is_map_key_type() => {
                 let token = self.advance().unwrap();
-                let end = token.position + token.value.len();
+                let end = &token.position + token.value.len();
                 Ok(Node::new(
                     token
                         .kind
@@ -1070,8 +1078,8 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn oneof_node(&mut self) -> Result<Node<OneofDeclaration>> {
         let start = self.expect(TokenKind::Keyword(Keyword::Oneof))?.position;
         let name = self.expect(TokenKind::Identifier)?;
+        let name_end = &name.position + name.value.len();
         let name_start = name.position;
-        let name_end = name.position + name.value.len();
         let name = Node::new(name.value, name_start, name_end);
 
         self.expect(TokenKind::LBrace)?;
@@ -1139,10 +1147,12 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             }
             Some(TokenKind::Keyword(kw)) if kw.is_scalar() => {
                 let start = self.advance().unwrap();
+                let end = &start.position + start.value.len();
+
                 let scalar_type = Node::new(
                     ScalarType::try_from(start.kind).unwrap(),
                     start.position,
-                    start.position + start.value.len(),
+                    end,
                 );
                 Node::new(
                     FieldType::ScalarType(scalar_type.value),
@@ -1164,7 +1174,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         let number = Node::new(
             number.value.parse::<u32>().unwrap(),
             number.position,
-            number.position + number.value.len(),
+            &number.position + number.value.len(),
         );
         let options = if let Some(TokenKind::RBrace) = self.peek_kind() {
             Some(self.compact_options()?)
@@ -1220,14 +1230,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     }) => Node::new(
                         TagEnd::Tag(value.parse::<u32>().unwrap()),
                         position,
-                        position + value.len(),
+                        &position + value.len(),
                     ),
                     Some(Token {
                         kind: TokenKind::Identifier,
                         value,
                         position,
                     }) if &value == "max" => {
-                        Node::new(TagEnd::Max, position, position + value.len())
+                        Node::new(TagEnd::Max, position, &position + value.len())
                     }
                     _ => {
                         return Err(ParseError::new(
@@ -1246,7 +1256,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 start: Node::new(
                     start.value.parse::<u32>().unwrap(),
                     start.position,
-                    start.position + start.value.len(),
+                    &start.position + start.value.len(),
                 ),
                 end,
             };

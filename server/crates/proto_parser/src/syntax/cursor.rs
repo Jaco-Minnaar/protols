@@ -4,6 +4,8 @@ pub struct Cursor<'a> {
     initial_len: usize,
     chars: Chars<'a>,
     current_pos: usize,
+    current_line: usize,
+    current_line_char: usize,
 }
 
 pub const EOF_CHAR: char = '\0';
@@ -14,6 +16,8 @@ impl<'a> Cursor<'a> {
             initial_len: input.len(),
             chars: input.chars(),
             current_pos: 0,
+            current_line: 0,
+            current_line_char: 0,
         }
     }
 
@@ -42,6 +46,7 @@ impl<'a> Cursor<'a> {
     pub fn bump(&mut self) -> Option<char> {
         let c = self.chars.next()?;
         self.current_pos += 1;
+        self.current_line_char += 1;
 
         Some(c)
     }
@@ -52,7 +57,20 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    pub fn increment_line(&mut self) {
+        self.current_line += 1;
+        self.current_line_char = 0;
+    }
+
     pub fn current_pos(&self) -> usize {
         self.current_pos
+    }
+
+    pub fn current_line(&self) -> usize {
+        self.current_line
+    }
+
+    pub fn current_line_char(&self) -> usize {
+        self.current_line_char
     }
 }

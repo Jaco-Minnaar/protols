@@ -1,6 +1,6 @@
 use phf::phf_map;
 
-use crate::syntax::cursor::Cursor;
+use crate::{syntax::cursor::Cursor, Position};
 
 use super::cursor::EOF_CHAR;
 
@@ -183,7 +183,13 @@ impl Keyword {
 pub struct Token {
     pub value: String,
     pub kind: TokenKind,
-    pub position: usize,
+    pub position: Position,
+}
+
+impl Token {
+    pub fn take_values(self) -> (String, TokenKind, Position) {
+        (self.value, self.kind, self.position)
+    }
 }
 
 pub fn tokenize(input: &str) -> impl Iterator<Item = Token> + '_ {
@@ -201,7 +207,10 @@ pub fn tokenize(input: &str) -> impl Iterator<Item = Token> + '_ {
 
 impl Cursor<'_> {
     fn advance_token(&mut self) -> Token {
-        let pos = self.current_pos();
+        let pos = Position {
+            line: self.current_line(),
+            column: self.current_line_char(),
+        };
         let c = match self.bump() {
             Some(c) => c,
             None => EOF_CHAR,
@@ -236,7 +245,10 @@ impl Cursor<'_> {
             EOF_CHAR => Token {
                 value: c.to_string(),
                 kind: TokenKind::Eof,
-                position: pos,
+                position: Position {
+                    line: self.current_line(),
+                    column: self.current_line_char(),
+                },
             },
             _ => Token {
                 value: c.to_string(),
@@ -248,17 +260,22 @@ impl Cursor<'_> {
         token
     }
 
-    fn whitespace(&mut self, c: char, pos: usize) -> Token {
+    fn whitespace(&mut self, c: char, pos: Position) -> Token {
         let mut value = c.to_string();
         match c {
-            '\n' => Token {
-                value: c.to_string(),
-                kind: TokenKind::NewLine,
-                position: pos,
-            },
+            '\n' => {
+                self.increment_line();
+
+                Token {
+                    value: c.to_string(),
+                    kind: TokenKind::NewLine,
+                    position: pos,
+                }
+            }
             '\r' => {
                 if self.first() == '\n' {
                     let c = self.bump().unwrap();
+                    self.increment_line();
                     value.push(c);
                     Token {
                         value,
@@ -277,7 +294,7 @@ impl Cursor<'_> {
         }
     }
 
-    fn string(&mut self, c: char, pos: usize) -> Token {
+    fn string(&mut self, c: char, pos: Position) -> Token {
         let mut value = c.to_string();
         let mut next = self.first();
 
@@ -296,7 +313,7 @@ impl Cursor<'_> {
         }
     }
 
-    fn numeric_literal(&mut self, c: char, pos: usize) -> Token {
+    fn numeric_literal(&mut self, c: char, pos: Position) -> Token {
         let mut value = c.to_string();
         let mut next = self.first();
 
@@ -392,7 +409,7 @@ impl Cursor<'_> {
         }
     }
 
-    fn identifier_or_keyword(&mut self, c: char, pos: usize) -> Token {
+    fn identifier_or_keyword(&mut self, c: char, pos: Position) -> Token {
         let mut value = c.to_string();
 
         loop {
@@ -429,6 +446,8 @@ impl Cursor<'_> {
 
 #[cfg(test)]
 mod tests {
+    use crate::Position;
+
     use super::{tokenize, Keyword, Token, TokenKind};
 
     #[test]
@@ -438,7 +457,7 @@ mod tests {
         let expected_tokens = vec![Token {
             value: r#""hello""#.to_string(),
             kind: TokenKind::String,
-            position: 0,
+            position: Position { line: 0, column: 0 },
         }];
 
         let actual_tokens: Vec<Token> = tokenize(input).collect();
@@ -465,18 +484,18 @@ mod tests {
             let expected_tokens = vec![Token {
                 value: input.to_string(),
                 kind: expected_kind,
-                position: 0,
+                position: Position { line: 0, column: 0 },
             }];
 
             let actual_tokens: Vec<Token> = tokenize(input).collect();
 
-            assert_eq!(expected_tokens.len(), actual_tokens.len());
+            assert_eq!(expected_tokens.len(), actual_tokens.len(), "{}", input);
 
             expected_tokens
                 .iter()
                 .zip(actual_tokens)
                 .for_each(|(e, a)| {
-                    assert_eq!(e, &a);
+                    assert_eq!(e, &a, "{:?}", input);
                 });
         }
     }
@@ -503,7 +522,7 @@ mod tests {
             let expected_tokens = vec![Token {
                 value: input.to_string(),
                 kind: expected_kind,
-                position: 0,
+                position: Position { line: 0, column: 0 },
             }];
 
             let actual_tokens: Vec<Token> = tokenize(input).collect();
@@ -573,7 +592,7 @@ mod tests {
             let expected_tokens = vec![Token {
                 value: input.to_string(),
                 kind: TokenKind::Keyword(expected_kind),
-                position: 0,
+                position: Position { line: 0, column: 0 },
             }];
 
             let actual_tokens: Vec<Token> = tokenize(input).collect();
@@ -620,7 +639,7 @@ mod tests {
             let expected_tokens = vec![Token {
                 value: input.to_string(),
                 kind: expected_kind,
-                position: 0,
+                position: Position { line: 0, column: 0 },
             }];
 
             let actual_tokens: Vec<Token> = tokenize(&input.to_string()).collect();
@@ -651,22 +670,25 @@ mod tests {
                     Token {
                         value: "syntax".to_string(),
                         kind: TokenKind::Keyword(Keyword::Syntax),
-                        position: 0,
+                        position: Position { line: 0, column: 0 },
                     },
                     Token {
                         value: "=".to_string(),
                         kind: TokenKind::Equals,
-                        position: 7,
+                        position: Position { line: 0, column: 7 },
                     },
                     Token {
                         value: "\"proto3\"".to_string(),
                         kind: TokenKind::String,
-                        position: 9,
+                        position: Position { line: 0, column: 9 },
                     },
                     Token {
                         value: ";".to_string(),
                         kind: TokenKind::SemiColon,
-                        position: 17,
+                        position: Position {
+                            line: 0,
+                            column: 17,
+                        },
                     },
                 ],
             ),
@@ -676,17 +698,20 @@ mod tests {
                     Token {
                         value: "message".to_string(),
                         kind: TokenKind::Keyword(Keyword::Message),
-                        position: 0,
+                        position: Position { line: 0, column: 0 },
                     },
                     Token {
                         value: "Foo".to_string(),
                         kind: TokenKind::Identifier,
-                        position: 8,
+                        position: Position { line: 0, column: 8 },
                     },
                     Token {
                         value: "{".to_string(),
                         kind: TokenKind::LBrace,
-                        position: 12,
+                        position: Position {
+                            line: 0,
+                            column: 12,
+                        },
                     },
                 ],
             ),
@@ -696,52 +721,76 @@ mod tests {
                     Token {
                         value: "message".to_string(),
                         kind: TokenKind::Keyword(Keyword::Message),
-                        position: 0,
+                        position: Position { line: 0, column: 0 },
                     },
                     Token {
                         value: "Foo".to_string(),
                         kind: TokenKind::Identifier,
-                        position: 8,
+                        position: Position { line: 0, column: 8 },
                     },
                     Token {
                         value: "{".to_string(),
                         kind: TokenKind::LBrace,
-                        position: 12,
+                        position: Position {
+                            line: 0,
+                            column: 12,
+                        },
                     },
                     Token {
                         value: "optional".to_string(),
                         kind: TokenKind::Keyword(Keyword::Optional),
-                        position: 14,
+                        position: Position {
+                            line: 0,
+                            column: 14,
+                        },
                     },
                     Token {
                         value: "int32".to_string(),
                         kind: TokenKind::Keyword(Keyword::Int32),
-                        position: 23,
+                        position: Position {
+                            line: 0,
+                            column: 23,
+                        },
                     },
                     Token {
                         value: "bar".to_string(),
                         kind: TokenKind::Identifier,
-                        position: 29,
+                        position: Position {
+                            line: 0,
+                            column: 29,
+                        },
                     },
                     Token {
                         value: "=".to_string(),
                         kind: TokenKind::Equals,
-                        position: 33,
+                        position: Position {
+                            line: 0,
+                            column: 33,
+                        },
                     },
                     Token {
                         value: "1".to_string(),
                         kind: TokenKind::IntLiteral,
-                        position: 35,
+                        position: Position {
+                            line: 0,
+                            column: 35,
+                        },
                     },
                     Token {
                         value: ";".to_string(),
                         kind: TokenKind::SemiColon,
-                        position: 36,
+                        position: Position {
+                            line: 0,
+                            column: 36,
+                        },
                     },
                     Token {
                         value: "}".to_string(),
                         kind: TokenKind::RBrace,
-                        position: 38,
+                        position: Position {
+                            line: 0,
+                            column: 38,
+                        },
                     },
                 ],
             ),
@@ -751,82 +800,124 @@ mod tests {
                     Token {
                         value: "message".to_string(),
                         kind: TokenKind::Keyword(Keyword::Message),
-                        position: 0,
+                        position: Position { line: 0, column: 0 },
                     },
                     Token {
                         value: "Foo".to_string(),
                         kind: TokenKind::Identifier,
-                        position: 8,
+                        position: Position { line: 0, column: 8 },
                     },
                     Token {
                         value: "{".to_string(),
                         kind: TokenKind::LBrace,
-                        position: 12,
+                        position: Position {
+                            line: 0,
+                            column: 12,
+                        },
                     },
                     Token {
                         value: "optional".to_string(),
                         kind: TokenKind::Keyword(Keyword::Optional),
-                        position: 14,
+                        position: Position {
+                            line: 0,
+                            column: 14,
+                        },
                     },
                     Token {
                         value: "int32".to_string(),
                         kind: TokenKind::Keyword(Keyword::Int32),
-                        position: 23,
+                        position: Position {
+                            line: 0,
+                            column: 23,
+                        },
                     },
                     Token {
                         value: "bar".to_string(),
                         kind: TokenKind::Identifier,
-                        position: 29,
+                        position: Position {
+                            line: 0,
+                            column: 29,
+                        },
                     },
                     Token {
                         value: "=".to_string(),
                         kind: TokenKind::Equals,
-                        position: 33,
+                        position: Position {
+                            line: 0,
+                            column: 33,
+                        },
                     },
                     Token {
                         value: "1".to_string(),
                         kind: TokenKind::IntLiteral,
-                        position: 35,
+                        position: Position {
+                            line: 0,
+                            column: 35,
+                        },
                     },
                     Token {
                         value: ";".to_string(),
                         kind: TokenKind::SemiColon,
-                        position: 36,
+                        position: Position {
+                            line: 0,
+                            column: 36,
+                        },
                     },
                     Token {
                         value: "optional".to_string(),
                         kind: TokenKind::Keyword(Keyword::Optional),
-                        position: 38,
+                        position: Position {
+                            line: 0,
+                            column: 38,
+                        },
                     },
                     Token {
                         value: "int32".to_string(),
                         kind: TokenKind::Keyword(Keyword::Int32),
-                        position: 47,
+                        position: Position {
+                            line: 0,
+                            column: 47,
+                        },
                     },
                     Token {
                         value: "baz".to_string(),
                         kind: TokenKind::Identifier,
-                        position: 53,
+                        position: Position {
+                            line: 0,
+                            column: 53,
+                        },
                     },
                     Token {
                         value: "=".to_string(),
                         kind: TokenKind::Equals,
-                        position: 57,
+                        position: Position {
+                            line: 0,
+                            column: 57,
+                        },
                     },
                     Token {
                         value: "2".to_string(),
                         kind: TokenKind::IntLiteral,
-                        position: 59,
+                        position: Position {
+                            line: 0,
+                            column: 59,
+                        },
                     },
                     Token {
                         value: ";".to_string(),
                         kind: TokenKind::SemiColon,
-                        position: 60,
+                        position: Position {
+                            line: 0,
+                            column: 60,
+                        },
                     },
                     Token {
                         value: "}".to_string(),
                         kind: TokenKind::RBrace,
-                        position: 62,
+                        position: Position {
+                            line: 0,
+                            column: 62,
+                        },
                     },
                 ],
             ),
@@ -847,7 +938,7 @@ mod tests {
                 .iter()
                 .zip(actual_tokens)
                 .for_each(|(e, a)| {
-                    assert_eq!(e, &a);
+                    assert_eq!(e, &a, "input = {:?}", input);
                 });
         }
     }

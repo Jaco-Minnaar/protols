@@ -1,3 +1,5 @@
+use crate::Position;
+
 use self::{
     message::{FieldDeclaration, MessageNode},
     option::OptionNode,
@@ -254,12 +256,12 @@ impl Root {
 #[derive(Debug)]
 pub struct Node<T> {
     pub value: T,
-    pub start: usize,
-    pub end: usize,
+    pub start: Position,
+    pub end: Position,
 }
 
 impl<T> Node<T> {
-    pub fn new(value: T, start: usize, end: usize) -> Self {
+    pub fn new(value: T, start: Position, end: Position) -> Self {
         Self { value, start, end }
     }
 }
