@@ -1,7 +1,7 @@
 use crate::Position;
 
 use self::{
-    message::{FieldDeclaration, MessageNode},
+    message::{FieldDeclaration, Message},
     option::OptionNode,
     service::ServiceNode,
 };
@@ -17,7 +17,7 @@ pub enum RootNode {
     SyntaxDeclaration(Node<SyntaxNode>),
     PackageDeclaration(Node<PackageNode>),
     ImportDeclaration(Node<ImportNode>),
-    MessageDeclaration(Node<MessageNode>),
+    MessageDeclaration(Node<Message>),
     ServiceDeclaration(Node<ServiceNode>),
     OptionDeclaration(Node<OptionNode>),
     EnumDeclaration(Node<EnumNode>),
@@ -25,23 +25,23 @@ pub enum RootNode {
     Empty,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SyntaxNode {
     pub proto_type: SyntaxType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PackageNode {
     pub package_name: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ImportNode {
     pub package_name: String,
     pub modifier: Option<ImportModifier>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypeName {
     pub absolute: bool,
     pub parts: Vec<String>,
@@ -65,31 +65,31 @@ impl From<String> for TypeName {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Reserved {
     TagRanges(Vec<Node<TagRange>>),
     Names(Vec<Node<String>>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TagRange {
     pub start: Node<u32>,
     pub end: Option<Node<TagEnd>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TagEnd {
     Tag(u32),
     Max,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnumNode {
     pub name: String,
     pub elements: Vec<Node<EnumElement>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EnumElement {
     EnumValue {
         name: String,
@@ -101,18 +101,18 @@ pub enum EnumElement {
     Empty,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExtensionNode {
     pub extendee: Vec<String>,
     pub elements: Vec<Node<ExtensionElement>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExtensionElement {
     Field(FieldDeclaration),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum MapKeyType {
     Int32,
     Int64,
@@ -150,7 +150,7 @@ impl TryFrom<TokenKind> for MapKeyType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ScalarType {
     Double,
     Float,
@@ -222,13 +222,13 @@ impl TryFrom<&TokenKind> for ScalarType {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum SyntaxType {
     Proto2,
     Proto3,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ImportModifier {
     Weak,
     Public,
@@ -253,14 +253,20 @@ impl Root {
     }
 }
 
-#[derive(Debug)]
-pub struct Node<T> {
+#[derive(Debug, Clone)]
+pub struct Node<T>
+where
+    T: Clone,
+{
     pub value: T,
     pub start: Position,
     pub end: Position,
 }
 
-impl<T> Node<T> {
+impl<T> Node<T>
+where
+    T: Clone,
+{
     pub fn new(value: T, start: Position, end: Position) -> Self {
         Self { value, start, end }
     }

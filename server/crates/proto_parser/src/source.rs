@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{completion::get_suggestions, tokenize, ParseResult, Parser};
+use crate::{completion::get_suggestions, get_messages, tokenize, ParseResult, Parser, Position};
 
 #[derive(Debug)]
 pub struct Source {
     trees: HashMap<String, ParseResult>,
     completions: Vec<String>,
+    messages: HashMap<String, Position>,
 }
 
 impl Source {
@@ -13,6 +14,7 @@ impl Source {
         Self {
             trees: HashMap::new(),
             completions: Vec::new(),
+            messages: HashMap::new(),
         }
     }
 
@@ -22,6 +24,10 @@ impl Source {
 
         self.trees.insert(name.to_string(), tree);
         self.completions = get_suggestions(self.trees.values().map(|result| &result.root));
+        let messages = get_messages(self.trees.values().map(|result| &result.root));
+        self.messages = messages
+            .map(|message| (message.node.value.name.clone(), message.node.start))
+            .collect();
     }
 
     pub fn completions(&self, _line: usize, _column: usize) -> Vec<String> {
@@ -29,5 +35,9 @@ impl Source {
             .iter()
             .map(|completion| completion.to_string())
             .collect()
+    }
+
+    pub fn goto_definition(&self, name: &str) -> Option<Position> {
+        self.messages.get(name).copied()
     }
 }

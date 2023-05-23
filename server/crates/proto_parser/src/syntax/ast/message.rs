@@ -4,13 +4,13 @@ use super::{
     option::OptionNode, EnumNode, ExtensionNode, MapKeyType, Node, Reserved, ScalarType, TypeName,
 };
 
-#[derive(Debug)]
-pub struct MessageNode {
+#[derive(Debug, Clone)]
+pub struct Message {
     pub name: String,
     pub elements: Vec<Node<MessageElement>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FieldDeclaration {
     pub cardinality: Node<FieldCardinality>,
     pub type_name: Node<FieldType>,
@@ -19,7 +19,7 @@ pub struct FieldDeclaration {
     pub options: Vec<Node<OptionNode>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MapFieldDeclaration {
     pub key_type: Node<MapKeyType>,
     pub value_type: Node<FieldType>,
@@ -28,26 +28,26 @@ pub struct MapFieldDeclaration {
     pub options: Vec<Node<OptionNode>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MessageElement {
     FieldDeclaration(FieldDeclaration),
     MapFieldDeclaration(MapFieldDeclaration),
     OneOfDeclaration(OneofDeclaration),
     OptionDeclaration(OptionNode),
     ReservedDeclaration(Reserved),
-    MessageDeclaration(Box<MessageNode>),
+    MessageDeclaration(Box<Message>),
     EnumDeclaration(EnumNode),
     ExtensionDeclaration(ExtensionNode),
     EmptyDeclaration,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OneofDeclaration {
     pub name: Node<String>,
     pub elements: Vec<Node<OneofElement>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FieldCardinality {
     Required,
     Optional,
@@ -67,19 +67,19 @@ impl TryFrom<TokenKind> for FieldCardinality {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FieldType {
     ScalarType(ScalarType),
     TypeName(TypeName),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum OneofElement {
     Option(OptionNode),
     OneofField(OneofField),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OneofField {
     pub type_name: Node<FieldType>,
     pub name: Node<String>,

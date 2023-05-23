@@ -2,7 +2,7 @@ use std::{iter::Peekable, str::FromStr};
 
 use crate::{
     syntax::ast::{
-        message::{MessageNode, OneofField},
+        message::{Message, OneofField},
         option::OptionNamePart,
         EnumNode, ExtensionNode, TypeName,
     },
@@ -292,7 +292,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         Ok(option_node)
     }
 
-    fn message_node(&mut self) -> Result<Node<MessageNode>> {
+    fn message_node(&mut self) -> Result<Node<Message>> {
         let start = self.advance().unwrap().position;
 
         let identifier = self.expect(TokenKind::Identifier)?;
@@ -308,7 +308,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         let end_token = self.expect(TokenKind::RBrace)?;
 
         let message_node = Node::new(
-            MessageNode {
+            Message {
                 name: identifier.value,
                 elements,
             },
