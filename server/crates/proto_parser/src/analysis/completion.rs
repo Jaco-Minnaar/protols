@@ -1,4 +1,4 @@
-use crate::{syntax::Root, RootNode};
+use crate::{syntax::Root, RootDeclaration};
 
 pub fn get_suggestions<'a>(roots: impl Iterator<Item = &'a Root>) -> Vec<String> {
     roots
@@ -7,17 +7,15 @@ pub fn get_suggestions<'a>(roots: impl Iterator<Item = &'a Root>) -> Vec<String>
                 .iter()
                 .filter(|root_node| {
                     matches!(
-                        root_node,
-                        RootNode::MessageDeclaration(_) | RootNode::EnumDeclaration(_)
+                        root_node.value,
+                        RootDeclaration::Message(_) | RootDeclaration::Enum(_)
                     )
                 })
-                .map(|root_node| match root_node {
-                    RootNode::MessageDeclaration(message_declaration) => {
-                        message_declaration.value.name.clone()
+                .map(|root_node| match root_node.value {
+                    RootDeclaration::Message(message_declaration) => {
+                        message_declaration.name.clone()
                     }
-                    RootNode::EnumDeclaration(enum_declaration) => {
-                        enum_declaration.value.name.clone()
-                    }
+                    RootDeclaration::Enum(enum_declaration) => enum_declaration.name.clone(),
                     _ => unreachable!(),
                 })
         })

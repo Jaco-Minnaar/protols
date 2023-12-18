@@ -18,7 +18,7 @@ use super::{
         option::{OptionName, OptionNode, OptionValue},
         service::{MessageType, MethodElement, MethodNode, ServiceElement, ServiceNode},
         EnumElement, ExtensionElement, ImportModifier, ImportNode, MapKeyType, Node, PackageNode,
-        Reserved, Root, RootNode, ScalarType, SyntaxNode, SyntaxType, TagEnd, TagRange,
+        Reserved, Root, RootDeclaration, ScalarType, SyntaxNode, SyntaxType, TagEnd, TagRange,
     },
     lexer::{Keyword, Token, TokenKind},
 };
@@ -133,29 +133,39 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         self.tokens.next()
     }
 
-    fn root_node(&mut self) -> Result<RootNode> {
+    fn root_node(&mut self) -> Result<Node<RootDeclaration>> {
         let result = match self.peek_kind() {
             Some(TokenKind::Keyword(Keyword::Syntax)) => {
-                RootNode::SyntaxDeclaration(self.syntax_node()?)
+                let node = self.syntax_node()?;
+                Node::new(RootDeclaration::Syntax(node.value), node.start, node.end)
             }
             Some(TokenKind::Keyword(Keyword::Package)) => {
-                RootNode::PackageDeclaration(self.package_node()?)
+                let node = self.package_node()?;
+                Node::new(RootDeclaration::Package(node.value), node.start, node.end)
             }
             Some(TokenKind::Keyword(Keyword::Import)) => {
-                RootNode::ImportDeclaration(self.import_node()?)
+                let node = self.import_node()?;
+                Node::new(RootDeclaration::Import(node.value), node.start, node.end)
             }
             Some(TokenKind::Keyword(Keyword::Option)) => {
-                RootNode::OptionDeclaration(self.option_node()?)
+                let node = self.option_node()?;
+                Node::new(RootDeclaration::Option(node.value), node.start, node.end)
             }
             Some(TokenKind::Keyword(Keyword::Message)) => {
-                RootNode::MessageDeclaration(self.message_node()?)
+                let node = self.message_node()?;
+                Node::new(RootDeclaration::Message(node.value), node.start, node.end)
             }
-            Some(TokenKind::Keyword(Keyword::Enum)) => RootNode::EnumDeclaration(self.enum_node()?),
+            Some(TokenKind::Keyword(Keyword::Enum)) => {
+                let node = self.enum_node()?;
+                Node::new(RootDeclaration::Enum(node.value), node.start, node.end)
+            }
             Some(TokenKind::Keyword(Keyword::Service)) => {
-                RootNode::ServiceDeclaration(self.service_node()?)
+                let node = self.service_node()?;
+                Node::new(RootDeclaration::Service(node.value), node.start, node.end)
             }
             Some(TokenKind::Keyword(Keyword::Extend)) => {
-                RootNode::ExtensionDeclaration(self.extend_node()?)
+                let node = self.extend_node()?;
+                Node::new(RootDeclaration::Extension(node.value), node.start, node.end)
             }
             Some(_) => {
                 let token = self.advance().unwrap();
@@ -165,7 +175,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 );
                 return Err(err);
             }
-            None => RootNode::Empty,
+            None => Node::new(
+                RootDeclaration::Empty,
+                Position::default(),
+                Position::default(),
+            ),
         };
 
         Ok(result)
@@ -576,75 +590,43 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 | TokenKind::Identifier,
             ) => {
                 let decl = self.field_decl()?;
-                Node::new(
-                    MessageElement::FieldDeclaration(decl.value),
-                    decl.start,
-                    decl.end,
-                )
+                Node::new(MessageElement::Field(decl.value), decl.start, decl.end)
             }
             Some(TokenKind::Keyword(t)) if t.is_scalar() => {
                 let decl = self.field_decl()?;
-                Node::new(
-                    MessageElement::FieldDeclaration(decl.value),
-                    decl.start,
-                    decl.end,
-                )
+                Node::new(MessageElement::Field(decl.value), decl.start, decl.end)
             }
             Some(TokenKind::Keyword(Keyword::Enum)) => {
                 let decl = self.enum_node()?;
-                Node::new(
-                    MessageElement::EnumDeclaration(decl.value),
-                    decl.start,
-                    decl.end,
-                )
+                Node::new(MessageElement::Enum(decl.value), decl.start, decl.end)
             }
             Some(TokenKind::Keyword(Keyword::Message)) => {
                 let decl = self.message_node()?;
                 Node::new(
-                    MessageElement::MessageDeclaration(Box::new(decl.value)),
+                    MessageElement::Message(Box::new(decl.value)),
                     decl.start,
                     decl.end,
                 )
             }
             Some(TokenKind::Keyword(Keyword::Oneof)) => {
                 let decl = self.oneof_node()?;
-                Node::new(
-                    MessageElement::OneOfDeclaration(decl.value),
-                    decl.start,
-                    decl.end,
-                )
+                Node::new(MessageElement::OneOf(decl.value), decl.start, decl.end)
             }
             Some(TokenKind::Keyword(Keyword::Map)) => {
                 let decl = self.map_field_decl()?;
-                Node::new(
-                    MessageElement::MapFieldDeclaration(decl.value),
-                    decl.start,
-                    decl.end,
-                )
+                Node::new(MessageElement::MapField(decl.value), decl.start, decl.end)
             }
             Some(TokenKind::Keyword(Keyword::Extensions)) => {
                 let decl = self.extend_node()?;
-                Node::new(
-                    MessageElement::ExtensionDeclaration(decl.value),
-                    decl.start,
-                    decl.end,
-                )
+                Node::new(MessageElement::Extension(decl.value), decl.start, decl.end)
             }
             Some(TokenKind::Keyword(Keyword::Reserved)) => {
                 let decl = self.reserved_node()?;
-                Node::new(
-                    MessageElement::ReservedDeclaration(decl.value),
-                    decl.start,
-                    decl.end,
-                )
+                Node::new(MessageElement::Reserved(decl.value), decl.start, decl.end)
             }
             Some(TokenKind::Keyword(Keyword::Option)) => {
                 let decl = self.option_node()?;
-                Node::new(
-                    MessageElement::OptionDeclaration(decl.value),
-                    decl.start,
-                    decl.end,
-                )
+                Node::new(MessageElement::Option(decl.value), decl.start, decl.end)
             }
             _ => todo!("unknown message element"),
         };
@@ -1302,7 +1284,7 @@ mod tests {
                 FieldCardinality, FieldDeclaration, FieldType, MapFieldDeclaration, MessageElement,
                 OneofDeclaration, OneofElement, OneofField,
             },
-            MapKeyType, Node, RootNode, ScalarType, TypeName,
+            MapKeyType, Node, RootDeclaration, ScalarType, TypeName,
         },
         lexer::tokenize,
     };
@@ -1339,16 +1321,17 @@ mod tests {
 
         let message = &node.root.nodes[1];
         assert!(
-            matches!(message, crate::syntax::ast::RootNode::MessageDeclaration(_)),
+            matches!(
+                message.value,
+                crate::syntax::ast::RootDeclaration::Message(_)
+            ),
             "Expected RootNode::MessageDeclaration. Got: {:?}",
             message
         );
-        let message = match message {
-            RootNode::MessageDeclaration(m) => m,
+        let message_node = match message.value {
+            RootDeclaration::Message(m) => m,
             rn => panic!("Expected RootNode::MessageDeclaration. Got: {:?}", rn),
         };
-
-        let message_node = &message.value;
 
         assert_eq!(message_node.name, "Test");
         assert_eq!(message_node.elements.len(), 8);
@@ -1357,7 +1340,7 @@ mod tests {
 
         assert!(matches!(
             &field.value,
-            MessageElement::FieldDeclaration(FieldDeclaration {
+            MessageElement::Field(FieldDeclaration {
                 cardinality: Node {
                     value: FieldCardinality::Optional,
                     ..
@@ -1376,7 +1359,7 @@ mod tests {
 
         assert!(matches!(
             &field.value,
-            MessageElement::FieldDeclaration(FieldDeclaration {
+            MessageElement::Field(FieldDeclaration {
                 cardinality: Node {
                     value: FieldCardinality::Optional,
                     ..
@@ -1395,7 +1378,7 @@ mod tests {
 
         assert!(matches!(
             &field.value,
-            MessageElement::FieldDeclaration(FieldDeclaration {
+            MessageElement::Field(FieldDeclaration {
                 cardinality: Node {
                     value: FieldCardinality::Optional,
                     ..
@@ -1414,7 +1397,7 @@ mod tests {
 
         assert!(matches!(
             &field.value,
-            MessageElement::FieldDeclaration(FieldDeclaration {
+            MessageElement::Field(FieldDeclaration {
                 cardinality: Node {
                     value: FieldCardinality::Optional,
                     ..
@@ -1434,7 +1417,7 @@ mod tests {
         assert!(
             matches!(
                 &field.value,
-                MessageElement::FieldDeclaration(FieldDeclaration {
+                MessageElement::Field(FieldDeclaration {
                     cardinality: Node {
                         value: FieldCardinality::Optional,
                         ..
@@ -1457,7 +1440,7 @@ mod tests {
         assert!(
             matches!(
                 &field.value,
-                MessageElement::FieldDeclaration(FieldDeclaration {
+                MessageElement::Field(FieldDeclaration {
                     cardinality: Node {
                         value: FieldCardinality::Repeated,
                         ..
@@ -1480,7 +1463,7 @@ mod tests {
         assert!(
             matches!(
                 &field.value,
-                MessageElement::MapFieldDeclaration(MapFieldDeclaration {
+                MessageElement::MapField(MapFieldDeclaration {
                     key_type: Node {
                         value: MapKeyType::String,
                         ..
@@ -1503,7 +1486,7 @@ mod tests {
         assert!(
             matches!(
                 &field.value,
-                MessageElement::OneOfDeclaration(OneofDeclaration {
+                MessageElement::OneOf(OneofDeclaration {
                     name: Node { value, ..},
                     elements: oneof_elements,
                 }) if value == "h"

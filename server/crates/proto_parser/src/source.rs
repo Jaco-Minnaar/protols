@@ -37,7 +37,10 @@ impl Source {
             .collect()
     }
 
-    pub fn goto_definition(&self, name: &str) -> Option<Position> {
-        self.messages.get(name).copied()
+    pub fn goto_definition(&self, file: &str, position: Position) -> Option<Position> {
+        let tree = self.trees.get(file)?;
+        // tree.root.nodes
+
+        todo!()
     }
 }

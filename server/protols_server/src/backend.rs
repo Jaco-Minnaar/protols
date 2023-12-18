@@ -5,8 +5,8 @@ use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionOptions, CompletionParams, CompletionResponse,
-    DidSaveTextDocumentParams, InitializedParams, MessageType, TextDocumentSyncCapability,
-    TextDocumentSyncKind,
+    DidSaveTextDocumentParams, GotoDefinitionParams, GotoDefinitionResponse, InitializedParams,
+    MessageType, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 use tower_lsp::{
     lsp_types::{InitializeParams, InitializeResult, ServerCapabilities},
@@ -37,6 +37,7 @@ impl Backend {
 
     pub async fn did_save(&mut self, params: DidSaveTextDocumentParams) {
         let path = params.text_document.uri.path();
+        log::debug!("did save {path}");
         let file = tokio::fs::read_to_string(path).await.unwrap();
 
         self.source.parse(path, &file);
@@ -45,8 +46,9 @@ impl Backend {
 
 #[tower_lsp::async_trait]
 impl LanguageServer for ProtoLanguageServer {
-    async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+    async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
         log::info!("initialize");
+        dbg!(params);
 
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
@@ -79,6 +81,7 @@ impl LanguageServer for ProtoLanguageServer {
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        log::debug!("completion");
         let line = params.text_document_position.position.line as usize;
         let column = params.text_document_position.position.character as usize;
 
@@ -96,7 +99,17 @@ impl LanguageServer for ProtoLanguageServer {
         )))
     }
 
+    async fn goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> Result<Option<GotoDefinitionResponse>> {
+        log::debug!("goto_definition");
+
+        todo!()
+    }
+
     async fn shutdown(&self) -> Result<()> {
+        log::info!("shutdown");
         Ok(())
     }
 }

@@ -30,15 +30,15 @@ pub struct MapFieldDeclaration {
 
 #[derive(Debug, Clone)]
 pub enum MessageElement {
-    FieldDeclaration(FieldDeclaration),
-    MapFieldDeclaration(MapFieldDeclaration),
-    OneOfDeclaration(OneofDeclaration),
-    OptionDeclaration(OptionNode),
-    ReservedDeclaration(Reserved),
-    MessageDeclaration(Box<Message>),
-    EnumDeclaration(EnumNode),
-    ExtensionDeclaration(ExtensionNode),
-    EmptyDeclaration,
+    Field(FieldDeclaration),
+    MapField(MapFieldDeclaration),
+    OneOf(OneofDeclaration),
+    Option(OptionNode),
+    Reserved(Reserved),
+    Message(Box<Message>),
+    Enum(EnumNode),
+    Extension(ExtensionNode),
+    Empty,
 }
 
 #[derive(Debug, Clone)]

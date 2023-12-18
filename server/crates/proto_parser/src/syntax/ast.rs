@@ -12,17 +12,27 @@ pub mod message;
 pub mod option;
 pub mod service;
 
-#[derive(Debug)]
-pub enum RootNode {
-    SyntaxDeclaration(Node<SyntaxNode>),
-    PackageDeclaration(Node<PackageNode>),
-    ImportDeclaration(Node<ImportNode>),
-    MessageDeclaration(Node<Message>),
-    ServiceDeclaration(Node<ServiceNode>),
-    OptionDeclaration(Node<OptionNode>),
-    EnumDeclaration(Node<EnumNode>),
-    ExtensionDeclaration(Node<ExtensionNode>),
+#[derive(Debug, Clone)]
+pub enum RootDeclaration {
+    Syntax(SyntaxNode),
+    Package(PackageNode),
+    Import(ImportNode),
+    Message(Message),
+    Service(ServiceNode),
+    Option(OptionNode),
+    Enum(EnumNode),
+    Extension(ExtensionNode),
     Empty,
+}
+
+impl RootDeclaration {
+    pub fn get_name(&self) -> Option<&str> {
+        match self {
+            RootDeclaration::Message(message) => Some(&message.name),
+            RootDeclaration::Enum(enum_declaration) => Some(&enum_declaration.name),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -236,7 +246,7 @@ pub enum ImportModifier {
 
 #[derive(Debug)]
 pub struct Root {
-    pub nodes: Vec<RootNode>,
+    pub nodes: Vec<Node<RootDeclaration>>,
     pub file_name: String,
 }
 
@@ -248,7 +258,7 @@ impl Root {
         }
     }
 
-    pub fn add_node(&mut self, node: RootNode) {
+    pub fn add_node(&mut self, node: Node<RootDeclaration>) {
         self.nodes.push(node);
     }
 }

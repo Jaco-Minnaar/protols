@@ -36,3 +36,12 @@ impl Add<usize> for &Position {
         }
     }
 }
+
+impl Default for Position {
+    fn default() -> Self {
+        Self {
+            line: Default::default(),
+            column: Default::default(),
+        }
+    }
+}
